@@ -143,6 +143,21 @@
     border-radius: 10px; padding: 3px 0 4px; border: 1px solid rgba(255,255,255,.12); }
   .pname { font-size: 14px; color: #cfd3dc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; }
   .pchips { font-size: 17px; font-weight: 800; color: #ffd86b; }
+  .seat .kind { position: absolute; left: 18px; top: 8px; width: 34px; height: 34px; border-radius: 50%; display: grid;
+    place-items: center; font-size: 20px; background: #1b1d24; border: 2px solid #c9a24a; box-shadow: 0 2px 5px rgba(0,0,0,.6); }
+  .seat .kind:empty { display: none; }
+  .seat.real .kind, .seat.me .kind.human { border-color: #4aa8ff; }
+  .seat .clock { position: absolute; left: -54px; top: -50px; width: 34px; height: 34px; border-radius: 50%; display: grid;
+    place-items: center; font-weight: 900; font-size: 18px; background: #1d9a58; border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,.6); z-index: 4; }
+  .seat .clock.low { background: #d3302a; animation: pulse-clock .5s infinite alternate; }
+  .seat .clock:empty { display: none; }
+  @keyframes pulse-clock { to { transform: scale(1.15); } }
+  #feed { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); display: flex; flex-direction: column;
+    align-items: center; gap: 6px; z-index: 15; pointer-events: none; }
+  #feed div { background: rgba(10,10,14,.88); border: 1px solid rgba(255,255,255,.15); border-radius: 18px; padding: 6px 16px;
+    font-size: 14px; font-weight: 700; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    animation: pop .25s ease-out; transition: opacity .5s; }
   .seat .cards { position: absolute; top: -37px; display: flex; gap: 4px; }
   .seat.cr .cards { left: 50px; }
   .seat.cl .cards { right: 50px; flex-direction: row-reverse; }
@@ -297,6 +312,7 @@
     <div id="pot"><i class="chip g"></i><small>POT</small><span id="potTxt">$0</span></div>
     <div id="board"></div>
     <div id="msg"></div>
+    <div id="feed"></div>
     <div id="seats"></div>
     <div id="dbtn">D</div>
     <div id="handName"></div>
@@ -685,7 +701,7 @@ async function animateCollect() {
 
 // ---------------------------------------------------------------- online cash tables
 // The server runs the table; this page draws each state it sends and passes on your moves.
-const TURN_TIME = 20000;
+const TURN_TIME = 5000;
 function wsUrl() {
   if (SERVER_URL) return SERVER_URL.trim().replace(/^http/, 'ws').replace(/\/+$/, '');
   if (/^https?:$/.test(location.protocol)) return location.origin.replace(/^http/, 'ws');
@@ -776,6 +792,7 @@ async function handleEvent(ev, s) {
     if (ev.kind === 'action') (ev.type === 'fold' ? sfx.fold : ev.type === 'check' ? sfx.check : sfx.chip)();
   }
   applyState(s);
+  if (ev.notice) notice(ev.notice);
   const me = s.you >= 0 ? s.seats[s.you] : null;
   switch (ev.kind) {
     case 'win': case 'showdown': {
@@ -788,7 +805,7 @@ async function handleEvent(ev, s) {
       }
       break;
     }
-    case 'chat': case 'seat': say(vis(ev.seat), ev.text); break;
+    case 'chat': case 'seat': if (ev.text) say(vis(ev.seat), ev.text); break;
     case 'handEnd':
       S.seated = G.myChips; save();
       if (me && me.chips <= 0) bustOnline();
@@ -802,9 +819,10 @@ function applyState(s) {
   s.seats.forEach((q, i) => {
     G.players[vis(i)] = { name: q.name, avatar: q.avatar, chips: q.chips, bet: q.bet, total: q.total, folded: q.folded,
       allIn: q.allIn, sitOut: q.sitOut, cards: q.cards, isHuman: i === s.you, showCards: q.cards.some(c => c != null),
-      real: !q.isBot && i !== s.you, tag: q.tag };
+      real: !q.isBot && i !== s.you, bot: q.isBot, tag: q.tag };
   });
   G.dealer = vis(s.dealer); G.turn = s.turn >= 0 ? vis(s.turn) : -1;
+  G.turnEnd = s.turnLeft ? performance.now() + s.turnLeft : 0;
   G.sb = s.sb; G.bb = s.bb;
   if (s.board.length < G.board.length) els.slots.forEach(sl => { sl.innerHTML = ''; });
   G.board = s.board.slice();
@@ -857,13 +875,34 @@ function connectionLost() {
     [{ label: 'LOBBY', cls: 'btn-gold', value: 'lobby' }]).then(() => { if (G === g) leaveTable(); });
 }
 
+// Short message at the top of the table, e.g. "Sam joined the table".
+function notice(text) {
+  const feed = $('#feed'), d = document.createElement('div');
+  d.textContent = text; feed.appendChild(d);
+  while (feed.children.length > 3) feed.firstChild.remove();
+  setTimeout(() => { d.style.opacity = '0'; }, 3800);
+  setTimeout(() => d.remove(), 4400);
+}
+// Seconds left for a real player's turn at an online table.
+setInterval(() => {
+  if (!G || !els.seats.length) return;
+  const left = G.online && G.turn >= 0 && G.turnEnd ? Math.ceil((G.turnEnd - performance.now()) / 1000) : 0;
+  els.seats.forEach((s, i) => {
+    const c = s.querySelector('.clock'), v = i === G.turn && left > 0 ? String(left) : '';
+    if (c.textContent !== v) {
+      c.textContent = v; c.classList.toggle('low', left > 0 && left <= 2);
+      if (v && i === 0 && G.players[0].isHuman && left <= 3) tone(1200, .05, 'square', .04);
+    }
+  });
+}, 100);
+
 // ---------------------------------------------------------------- table UI
 function buildTable() {
   const wrap = $('#seats'); wrap.innerHTML = ''; els.seats = []; els.bets = [];
   G.players.forEach((p, i) => {
     const s = document.createElement('div');
     s.className = 'seat ' + SEAT[i].side; s.style.left = SEAT[i].x + 'px'; s.style.top = SEAT[i].y + 'px';
-    s.innerHTML = '<div class="cards"></div><div class="avatar"></div><div class="nameplate"><div class="pname"></div><div class="pchips"></div></div><div class="tag"></div>';
+    s.innerHTML = '<div class="cards"></div><div class="avatar"></div><div class="nameplate"><div class="pname"></div><div class="pchips"></div></div><div class="tag"></div><div class="kind"></div><div class="clock"></div>';
     wrap.appendChild(s); els.seats.push(s);
     const b = document.createElement('div');
     b.className = 'bet hidden'; b.style.left = BET[i].x + 'px'; b.style.top = BET[i].y + 'px';
@@ -902,6 +941,10 @@ function renderSeat(i) {
   s.classList.toggle('folded', !!p.folded && !p.sitOut);
   s.classList.toggle('out', !!(p.out || p.sitOut));
   s.classList.toggle('real', !!p.real);
+  const bot = G.online ? p.bot : !p.isHuman, kind = s.querySelector('.kind');
+  kind.textContent = p.name ? (bot ? '🤖' : '👤') : '';
+  kind.classList.toggle('human', !bot);
+  kind.title = bot ? 'Computer player' : 'Real player';
   const faceUp = p.isHuman || p.showCards;
   const key = (p.cards || []).join(',') + '|' + faceUp;
   if (s.dataset.key !== key) {
@@ -997,8 +1040,10 @@ async function runTable(tok) {
         else { leaveTable(); return; }
       }
       for (let i = 1; i < 5; i++) if (P[i].chips <= 0) {
+        const gone = P[i].name;
         P[i] = null; P[i] = newBot(botStack());
         els.seats[i].dataset.key = ''; renderSeat(i); say(i, 'Hi all! 👋');
+        notice(`${gone} busted · ${P[i].name} took the seat`);
       }
     } else {
       if (P.filter(p => !p.out).length === 1) { await sngFinish(1, tok); return; }

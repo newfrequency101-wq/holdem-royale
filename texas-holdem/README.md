@@ -46,7 +46,9 @@ The `server/` folder contains a small Node.js server that runs shared cash table
 
 - Every table has 5 seats. When a real player sits down, they take a bot's seat (from the next hand if one is in progress), and when they leave, a bot takes the seat back. When a table is full of real players, the next player gets a new table.
 - The server shuffles and deals, so a player's browser never receives anyone else's hole cards until a showdown.
-- Each player has 20 seconds to act. After two timeouts in a row they sit out (folding automatically) until they click **I'm back**.
+- Real players have 5 seconds to act, with a countdown on their seat. When time runs out they check, or fold if someone has bet. After three timeouts in a row they sit out until they click **I'm back**.
+- Every player's picture has a badge: 🤖 for computer players and 👤 for real players.
+- Notices at the top of the table say when players join, wait for the next hand, sit down, leave or sit out.
 - Bankrolls stay in each player's own browser. The server only tracks the chips on the table.
 - If the server can't be reached, cash games fall back to offline play against bots. Sit-N-Go tournaments are always offline.
 

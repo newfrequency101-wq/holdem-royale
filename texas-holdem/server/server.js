@@ -8,7 +8,8 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
-const TURN_TIME = 20000;          // ms a player has to act before auto check/fold
+const TURN_TIME = 5000;           // ms a player has to act before auto check/fold
+const AWAY_AFTER = 3;             // timeouts in a row before a player sits out
 const HAND_GAP = 3200;            // ms between hands
 const MAX_MESSAGE = 512;          // bytes
 
@@ -161,7 +162,8 @@ class Table {
     const reserved = this.seats.findIndex(p => p.reservedBy === c);
     const s = {
       you, reserved, stage: this.stage, sb: this.sb, bb: this.bb, buy: this.buy, dealer: this.dealer, board: this.board,
-      turn: this.turn, turnId: this.turnId, msg: this.msg, winCards: this.winCards,
+      turn: this.turn, turnId: this.turnId, turnLeft: this.actionResolve ? Math.max(0, this.deadline - Date.now()) : 0,
+      msg: this.msg, winCards: this.winCards,
       seats: this.seats.map((p, i) => ({
         name: p.name, avatar: p.avatar, chips: p.chips, bet: p.bet || 0, total: p.total || 0, folded: !!p.folded,
         allIn: !!p.allIn, sitOut: !!p.sitOut, isBot: !!p.isBot, away: !!p.away, tag: p.tag || null,
@@ -184,13 +186,20 @@ class Table {
     this.watchers.add(c); c.table = this;
     this.seats[i].reservedBy = c;
     send(c, { t: 'joined', stage: this.stage, buy: this.buy });
-    if (!this.inHand) this.swapIn(i); else this.emit({ kind: 'state' });
+    if (!this.inHand) this.swapIn(i, true);
+    else this.emit({ kind: 'notice', notice: `${c.name} joined · waiting for next hand` });
     if (!this.running) this.run();
   }
-  swapIn(i) {
+  swapIn(i, justJoined) {
     const c = this.seats[i].reservedBy;
     this.seats[i] = { name: c.name, avatar: c.avatar, chips: this.buy, isBot: false, client: c, cards: [], bet: 0, total: 0 };
-    this.emit({ kind: 'seat', seat: i, text: '👋' });
+    this.emit({ kind: 'seat', seat: i, text: '👋', notice: `${c.name} ${justJoined ? 'joined the table' : 'sat down'}` });
+  }
+  // Puts a new bot in seat i; notice(botName) is the message shown to the table.
+  replaceWithBot(i, notice) {
+    const res = this.seats[i].reservedBy;
+    this.seats[i] = this.newBot(); this.seats[i].reservedBy = res;
+    if (!res) this.emit({ kind: 'seat', seat: i, text: 'Hi all! 👋', notice: notice(this.seats[i].name) });
   }
   removeClient(c) {
     this.watchers.delete(c); c.table = null;
@@ -200,7 +209,8 @@ class Table {
     if (i < 0) return;
     const p = this.seats[i];
     p.client = null;
-    if (!this.inHand) { this.seats[i] = this.newBot(); this.emit({ kind: 'seat', seat: i, text: 'Hi all! 👋' }); return; }
+    if (!this.inHand) { this.replaceWithBot(i, bot => `${p.name} left the table · ${bot} took the seat`); return; }
+    this.emit({ kind: 'notice', notice: `${p.name} left the table` });
     if (this.turn === i && this.actionResolve) this.actionResolve({ type: 'fold' });
     else if (!p.folded && !p.sitOut) { p.folded = true; p.tag = { text: 'LEFT', cls: 't-fold' }; this.emit({ kind: 'state' }); }
   }
@@ -210,13 +220,10 @@ class Table {
     await sleep(600);
     for (;;) {
       this.seats.forEach((p, i) => {
-        if (!p.isBot && !p.client) { this.seats[i] = this.newBot(); this.emit({ kind: 'seat', seat: i, text: 'Hi all! 👋' }); }
-        else if (p.isBot && p.chips <= 0) {
-          const res = p.reservedBy; this.seats[i] = this.newBot(); this.seats[i].reservedBy = res;
-          if (!res) this.emit({ kind: 'seat', seat: i, text: 'Hi all! 👋' });
-        }
+        if (!p.isBot && !p.client) this.replaceWithBot(i, bot => `${bot} took ${p.name}'s seat`);
+        else if (p.isBot && p.chips <= 0) this.replaceWithBot(i, bot => `${p.name} busted · ${bot} took the seat`);
       });
-      this.seats.forEach((p, i) => { if (p.reservedBy) this.swapIn(i); });
+      this.seats.forEach((p, i) => { if (p.reservedBy) this.swapIn(i, false); });
       if (!this.humanCount()) { this.running = false; tables.delete(this.id); return; }
       if (this.seats.filter(p => p.chips > 0).length < 2) { await sleep(1000); continue; }
       try { await this.playHand(); }
@@ -306,7 +313,11 @@ class Table {
     return new Promise(res => {
       this.deadline = Date.now() + TURN_TIME;
       const done = a => { clearTimeout(timer); this.actionResolve = null; res(a); };
-      const timer = setTimeout(() => { p.timeouts = (p.timeouts || 0) + 1; if (p.timeouts >= 2) p.away = true; done(auto()); }, TURN_TIME);
+      const timer = setTimeout(() => {
+        p.timeouts = (p.timeouts || 0) + 1;
+        if (p.timeouts >= AWAY_AFTER) { p.away = true; this.emit({ kind: 'notice', notice: `${p.name} is sitting out` }); }
+        done(auto());
+      }, TURN_TIME);
       this.actionResolve = (a, fromPlayer) => { if (fromPlayer) p.timeouts = 0; done(a); };
       this.emit({ kind: 'turn' });
     });
@@ -419,7 +430,7 @@ class Table {
   }
   onBack(c) {
     const p = this.seats.find(q => !q.isBot && q.client === c);
-    if (p) { p.away = false; p.timeouts = 0; this.emit({ kind: 'state' }); }
+    if (p && p.away) { p.away = false; p.timeouts = 0; this.emit({ kind: 'notice', notice: `${p.name} is back` }); }
   }
 }
 
@@ -503,7 +514,10 @@ const server = http.createServer((req, res) => {
   const f = FILES[url] && findFile(FILES[url][0]);
   if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
   res.writeHead(200, { 'Content-Type': FILES[url][1] });
-  fs.createReadStream(f).pipe(res);
+  if (f.endsWith('.html')) {
+    // A page served from here should talk to this server, whatever SERVER_URL the file was given.
+    res.end(fs.readFileSync(f, 'utf8').replace(/const SERVER_URL = '[^']*';/, "const SERVER_URL = '';"));
+  } else fs.createReadStream(f).pipe(res);
 });
 
 const wss = new WebSocketServer({ server, maxPayload: 4096 });
