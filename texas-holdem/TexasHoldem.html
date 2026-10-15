@@ -281,6 +281,7 @@
   .lb-list .lv:empty { display: none; }
   .lb-list .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
   .lb-list .sc { font-weight: 800; color: #ffd65a; }
+  .lb-list .un { font-size: 14px; font-weight: 600; color: #8c93a3; margin-left: 8px; }
   #lb p.q-note { font-size: 17px; color: #c7cbd4; margin-bottom: 22px; text-align: center; }
   .modal-box { width: 640px; background: linear-gradient(#3a3e4b, #262932); border-radius: 22px; padding: 36px 40px 34px;
     text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.15); animation: pop .25s ease-out; }
@@ -487,14 +488,14 @@ function save() {
 }
 // On Pixel Pit, the leaderboard ranks each player's highest bankroll ever. The site keeps the best
 // score per player, so the bankroll is sent when it's a new high for this visit, or when the avatar
-// or level shown next to it on the board changes.
+// name, or level shown next to it on the board changes.
 const onPixelPit = !!(window.PixelPit && PixelPit.available);
 // Changes are batched for a second, so quick avatar clicks send only the last one.
 let sentBest = 0, sentInfo = '', sendTimer = 0;
 function sendBest(now) {
   if (!onPixelPit) return;
   if (!now) { clearTimeout(sendTimer); sendTimer = setTimeout(() => sendBest(true), 1000); return; }
-  const info = { avatar: S.avatar, level: level().l }, key = JSON.stringify(info);
+  const info = { name: S.name === DEF.name ? '' : S.name, avatar: S.avatar, level: level().l }, key = JSON.stringify(info);
   if (S.bankroll <= sentBest && key === sentInfo) return Promise.resolve();
   sentBest = Math.max(sentBest, S.bankroll); sentInfo = key;
   try { return PixelPit.submitScore(S.bankroll, info).catch(() => {}); } catch (e) { return Promise.resolve(); }
@@ -792,9 +793,14 @@ function lbRow(rank, name, score, me, info) {
   info = info || {};
   const av = typeof info.avatar === 'string' && info.avatar.length <= 8 ? info.avatar : DEF.avatar;
   const lv = Number.isInteger(info.level) && info.level > 0 ? 'LV ' + info.level : '';
-  [['rk', rank ? '#' + rank : ''], ['av', av], ['nm', name], ['lv', lv], ['sc', fmt(score)]].forEach(([c, t]) => {
+  // The in-game name, with the Pixel Pit username after it when they differ, so no one can pose as someone else.
+  const nick = typeof info.name === 'string' && info.name.trim() ? info.name.trim().slice(0, 12) : name;
+  [['rk', rank ? '#' + rank : ''], ['av', av], ['nm', nick], ['lv', lv], ['sc', fmt(score)]].forEach(([c, t]) => {
     const s = document.createElement('span'); s.className = c; s.textContent = t; li.appendChild(s);
   });
+  if (nick !== name) {
+    const u = document.createElement('small'); u.className = 'un'; u.textContent = '@' + name; li.children[2].appendChild(u);
+  }
   return li;
 }
 async function showLeaderboard() {
