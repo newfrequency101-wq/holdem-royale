@@ -19,6 +19,12 @@
 - Signed-in players' progress is stored in their Pixel Pit account, so it survives closing the browser, restarting, clearing history and switching devices.
 - **Reset save** on the game page erases it.
 
+## Leaderboard
+
+- The **🏆 LEADERBOARD** button in the game's lobby, and the Leaderboard panel on the Pixel Pit game page, rank players by the most chips they've ever had.
+- Only signed-in Pixel Pit players are ranked. It only works on Pixel Pit, not when the game is opened from your PC or the Render address.
+- To wipe it (as the owner): Pixel Pit game page → **Clear leaderboard**. Players get back on the next time they open the game.
+
 ## If something looks old
 
 - PC: press **Ctrl + F5**.

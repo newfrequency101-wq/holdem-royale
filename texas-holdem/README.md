@@ -36,9 +36,16 @@ You start with $10,000. You can collect $2,000 in free chips every 3 hours, or a
 - Opponents with their own personalities, from tight and cautious to loose and aggressive
 - A win-chance meter that estimates your odds against the players still in the hand (you can hide it from the menu)
 - A profile that tracks your hands played, win rate, biggest pot, Sit-N-Go wins and best hand ever
+- A 🏆 Leaderboard in the lobby that ranks players by their richest bankroll ever (see [Leaderboard](#leaderboard))
 - Recorded card sounds (shuffle, flip and check) embedded in the page, plus synthesized chip and alert sounds, so there are no audio files to load
 
 Your bankroll, stats and settings are saved in the browser's local storage.
+
+## Leaderboard
+
+When the game runs on Pixel Pit, it sends each signed-in player's bankroll to the Pixel Pit leaderboard (`PixelPit.submitScore`) whenever it reaches a new high. Pixel Pit keeps each player's best, so the board ranks the richest bankroll each player has ever had, and losing chips later doesn't lower it. The **🏆 LEADERBOARD** button in the lobby shows the top 10 and your own rank. The same ranking appears in the Leaderboard panel on the game's Pixel Pit page.
+
+Opened anywhere else (your PC, or the Render address), the button explains that the leaderboard lives on Pixel Pit. The multiplayer server isn't involved.
 
 ## Multiplayer
 
