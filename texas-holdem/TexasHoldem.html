@@ -75,7 +75,17 @@
   .prize { font-size: 64px; font-weight: 900; line-height: 1; margin: 2px 0 8px;
     background: linear-gradient(#fff3b0, #ffc928 50%, #e08a00); -webkit-background-clip: text; background-clip: text;
     color: transparent; filter: drop-shadow(0 3px 0 #6b3a00); }
-  .faces { font-size: 34px; letter-spacing: 6px; margin: 14px 0; }
+  .faces { font-size: 34px; letter-spacing: 6px; margin: 10px 0 6px; }
+  #sngLock:empty { display: none; }
+  .link-btn { border: 0; background: none; cursor: pointer; font: inherit; font-size: 15px; font-weight: 700;
+    color: #ffe58a; text-decoration: underline; padding: 4px 8px; }
+  #liveQ { left: 16px; top: 540px; max-width: 450px; flex-wrap: wrap; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: #c7cbd4; }
+  #liveQ b { font-size: 20px; letter-spacing: 2px; }
+  #liveQ button { border: 0; cursor: pointer; font: inherit; font-weight: 900; font-size: 13px; color: #5a2e00;
+    background: linear-gradient(#ffe07a, #f2b51c); border-radius: 14px; padding: 5px 12px; }
+  body.mobile #liveQ { top: 500px; font-size: 16px; }
+  body.mobile #liveQ b { font-size: 26px; }
+  body.mobile #liveQ button { font-size: 17px; padding: 8px 16px; }
   .lock { font-size: 14px; color: #ffb3a1; margin-top: 4px; height: 18px; }
 
   .profile-top { display: flex; align-items: center; gap: 16px; text-align: left; margin-top: 6px; }
@@ -334,6 +344,7 @@
         <div class="kv">2nd PRIZE <b id="sngP2"></b></div>
         <div class="faces" id="sngFaces">😐😐😐😐😐</div>
         <div class="lock" id="sngLock"></div>
+        <button class="link-btn" id="sngPractice">Practice vs bots · free</button>
         <button class="btn btn-gold big" id="sngPlay">BUY-IN</button>
       </div>
       <div class="panel">
@@ -371,6 +382,7 @@
     <div id="handName"></div>
     <div id="meter"><div><span>WIN CHANCE</span><b id="meterTxt">–</b></div><span class="bar"><i id="meterBar"></i></span></div>
     <div class="hud" id="hudMode"></div>
+    <div class="hud hidden" id="liveQ"><span>LIVE</span><b id="liveQFaces"></b><span id="liveQTxt"></span><button id="liveQJoin">JOIN LIVE</button></div>
     <div class="hud" id="hudBlinds"><div>BLINDS</div><b id="blindsTxt"></b><div id="nextTxt"></div></div>
     <button class="round-btn" id="menuBtn" title="Menu">☰</button>
     <div id="menu" class="hidden">
@@ -405,7 +417,7 @@
     <div class="q-seats" id="qSeats"></div>
     <p class="q-note" id="qNote"></p>
     <div class="modal-btns">
-      <button class="btn btn-gold" id="qBots">PLAY WITH BOTS NOW</button>
+      <button class="btn btn-gold" id="qBots">PLAY WITH BOTS<small>FREE PRACTICE</small></button>
       <button class="btn btn-slate" id="qCancel">CANCEL</button>
     </div>
   </div></div>
@@ -685,6 +697,7 @@ $('#myName').onclick = () => {
 };
 $('#cashPlay').onclick = () => startCash(S.cashSel);
 $('#sngPlay').onclick = () => startSng(S.sngSel);
+$('#sngPractice').onclick = () => startGame('sng', S.sngSel);
 
 // ---------------------------------------------------------------- modal
 function modal(title, body, buttons) {
@@ -718,10 +731,11 @@ function newBot(stack) {
 
 function startGame(mode, idx) {
   ac(); goLandscape();
-  const cost = mode === 'cash' ? CASH[idx].buy : SNG[idx].buy;
+  // A Sit-N-Go against bots is a free practice game: no buy-in and no prizes.
+  const cost = mode === 'cash' ? CASH[idx].buy : 0;
   if (S.bankroll < cost) return;
   S.bankroll -= cost;
-  G = { mode, idx, token: Math.random(), players: [], dealer: -1, handNo: 0, board: [], turn: -1 };
+  G = { mode, idx, practice: mode === 'sng', token: Math.random(), players: [], dealer: -1, handNo: 0, board: [], turn: -1 };
   if (mode === 'cash') {
     const c = CASH[idx]; G.sb = c.sb; G.bb = c.bb; S.seated = cost;
     G.players.push({ name: S.name, avatar: S.avatar, chips: cost, isHuman: true });
@@ -746,7 +760,7 @@ function leaveTable() {
     try { ws.send(JSON.stringify({ t: 'leave' })); ws.close(); } catch (e) {}
   } else if (G.mode === 'cash') { S.bankroll += G.players[0].chips; S.seated = 0; }
   G = null; save(); keepAwake(false);
-  $('#awayBtn').classList.add('hidden');
+  $('#awayBtn').classList.add('hidden'); $('#liveQ').classList.add('hidden');
   $('#actions').classList.add('hidden'); $('#menu').classList.add('hidden'); $('#chat').classList.add('hidden');
   $('#table').classList.add('hidden'); $('#lobby').classList.remove('hidden');
   renderLobby();
@@ -951,6 +965,21 @@ function bustOnline() {
   });
 }
 
+// While practicing, show how many real players are waiting for a live tournament at this stage.
+async function updateLiveQueue() {
+  const show = !!(G && G.practice && wsUrl());
+  $('#liveQ').classList.toggle('hidden', !show);
+  if (!show) return;
+  let n = 0;
+  try { const r = await fetch(httpUrl() + '/health', { cache: 'no-store' }); n = r.ok ? ((await r.json()).sng || [])[G.idx] || 0 : 0; }
+  catch (e) { $('#liveQ').classList.add('hidden'); return; }
+  if (!G || !G.practice) return;
+  $('#liveQFaces').textContent = '😀'.repeat(n) + '😐'.repeat(5 - n);
+  $('#liveQTxt').textContent = n + '/5 waiting';
+}
+setInterval(updateLiveQueue, 5000);
+$('#liveQJoin').onclick = () => { if (!G || !G.practice) return; sfx.click(); const idx = G.idx; leaveTable(); startSng(idx); };
+
 // ---------------------------------------------------------------- Sit-N-Go waiting room
 // Buying in waits for five real players; anyone can switch to a tournament against bots instead.
 let Q = null;
@@ -958,6 +987,7 @@ function startSng(idx) {
   if (S.bankroll < SNG[idx].buy) return;
   ac(); goLandscape();
   if (!wsUrl()) { startGame('sng', idx); return; }
+  if (G) leaveTable();
   let ws;
   try { ws = new WebSocket(wsUrl()); } catch (e) { startGame('sng', idx); return; }
   Q = { ws, idx, players: null };
@@ -972,7 +1002,7 @@ function startSng(idx) {
     if (Q && Q.ws === ws) {
       Q = null; hideQueue();
       const v = await modal('Server Unavailable', 'Couldn\'t reach the game server for a live tournament.\nPlay against bots instead?', [
-        { label: 'PLAY WITH BOTS', cls: 'btn-gold', value: 'bots', disabled: S.bankroll < SNG[idx].buy },
+        { label: 'PLAY WITH BOTS', sub: 'FREE PRACTICE', cls: 'btn-gold', value: 'bots' },
         { label: 'CANCEL', cls: 'btn-slate', value: 'cancel' }]);
       if (v === 'bots' && !G) startGame('sng', idx);
     } else if (G && G.ws === ws) connectionLost();
@@ -1083,7 +1113,7 @@ function buildTable() {
   const c = G.mode === 'cash' ? CASH[G.idx] : SNG[G.idx];
   $('#hudMode').innerHTML = G.mode === 'cash'
     ? `CASH GAME · STAGE ${G.idx + 1}<small>Buy-in ${fmt(c.buy)}</small>`
-    : `SIT-N-GO · STAGE ${G.idx + 1}<small>1st ${short(c.buy * 3.5)} · 2nd ${short(c.buy * 1.5)}</small>`;
+    : `SIT-N-GO · PRACTICE<small>Free game against bots · no prizes</small>`;
   const chat = $('#chat'); chat.innerHTML = '';
   CHAT.forEach(t => { const b = document.createElement('button'); b.textContent = t;
     b.onclick = () => {
@@ -1091,7 +1121,7 @@ function buildTable() {
       if (G.online) G.ws.send(JSON.stringify({ t: 'chat', text: t })); else { say(0, t); maybeReply(t); }
     };
     chat.appendChild(b); });
-  renderMenu(); $('#msg').textContent = ''; $('#handName').textContent = '';
+  renderMenu(); updateLiveQueue(); $('#msg').textContent = ''; $('#handName').textContent = '';
   $('#meter').classList.toggle('hidden', !S.meter); setMeter(null);
   renderAll();
 }
@@ -1099,7 +1129,8 @@ function renderMenu() {
   $('#mSound').textContent = (S.muted ? '🔇 Sound: off' : '🔊 Sound: on');
   $('#mMeter').textContent = '📊 Win chance: ' + (S.meter ? 'shown' : 'hidden');
   $('#mSpeed').textContent = '⏩ Speed: ' + (S.fast ? 'fast' : 'normal');
-  $('#mLeave').textContent = G && G.mode === 'sng' ? '🚪 Leave (forfeit buy-in)' : '🚪 Leave table';
+  $('#mLeave').textContent = G && G.practice ? '🚪 Leave practice'
+    : G && G.mode === 'sng' ? '🚪 Leave (forfeit buy-in)' : '🚪 Leave table';
 }
 function renderSeat(i) {
   const p = G.players[i], s = els.seats[i];
@@ -1235,15 +1266,18 @@ async function runTable(tok) {
 
 async function sngFinish(rank, tok) {
   if (!alive(tok)) return;
-  const buy = SNG[G.idx].buy, prize = rank === 1 ? buy * 3.5 : rank === 2 ? buy * 1.5 : 0;
-  S.bankroll += prize; if (rank === 1) S.stats.sngWins++; save();
+  const practice = G.practice, buy = SNG[G.idx].buy;
+  const prize = practice ? 0 : rank === 1 ? buy * 3.5 : rank === 2 ? buy * 1.5 : 0;
+  S.bankroll += prize; if (rank === 1 && !practice) S.stats.sngWins++; save();
   rank <= 2 ? sfx.win() : sfx.lose();
   const title = rank === 1 ? '🏆 You Won!' : 'You Ranked ' + ord(rank);
-  const body = rank === 1 ? `Champion of the table!\nYou take home ${fmt(prize)}.`
+  const body = practice
+    ? (rank === 1 ? 'You beat the bots!\nPractice game: no chips won or lost.' : 'Practice game: no chips won or lost.\nGive it another go?')
+    : rank === 1 ? `Champion of the table!\nYou take home ${fmt(prize)}.`
     : rank === 2 ? `So close! Runner-up prize:\n${fmt(prize)}.` : 'Nice try!\nBetter luck next time.\nGive it another go?';
   const idx = G.idx, online = G.online;
   const v = await modal(title, body, [
-    { label: 'PLAY AGAIN', sub: 'BUY-IN ' + fmt(buy), cls: 'btn-gold', value: 'again', disabled: S.bankroll < buy },
+    { label: 'PLAY AGAIN', sub: practice ? 'FREE PRACTICE' : 'BUY-IN ' + fmt(buy), cls: 'btn-gold', value: 'again', disabled: !practice && S.bankroll < buy },
     { label: 'LOBBY', cls: 'btn-slate', value: 'lobby' }]);
   leaveTable();
   if (v === 'again') online ? startSng(idx) : startGame('sng', idx);
@@ -1526,8 +1560,8 @@ $('#menuBtn').onclick = () => { sfx.click(); $('#menu').classList.toggle('hidden
 $('#chatBtn').onclick = () => { sfx.click(); $('#chat').classList.toggle('hidden'); $('#menu').classList.add('hidden'); };
 $('#mLeave').onclick = async () => {
   $('#menu').classList.add('hidden');
-  if (G && G.mode === 'sng') {
-    const v = await modal('Leave Tournament?', 'You will forfeit your buy-in.', [
+  if (G && G.mode === 'sng' && !G.practice) {
+    const v = await modal('Leave Tournament?', 'Leaving early forfeits your buy-in\nand any prize you could still win.', [
       { label: 'STAY', cls: 'btn-gold', value: 'stay' }, { label: 'LEAVE', cls: 'btn-slate', value: 'leave' }]);
     if (v !== 'leave') return;
   }

@@ -15,7 +15,7 @@ For multiplayer cash tables, run the game server in `server/` (see [Multiplayer]
 | Mode | How it works |
 | --- | --- |
 | Cash Game | Pick a stage (blinds from $10/$20 up to the $5K/$10K high-roller table), buy in, and leave whenever you like. Your chips go back to your bankroll when you leave. Busted opponents are replaced by new players. When the multiplayer server is online, everyone who picks the same stage shares a table, and real players take over the bots' seats. |
-| Sit-N-Go | Five players start with 1,500 tournament chips each. The blinds go up every 5 hands. Last player standing wins 3.5× the buy-in, and 2nd place wins 1.5×. When the multiplayer server is online, buying in opens a waiting room: each real player waiting turns a 😐 into a 😀, and a live tournament starts when 5 real players have joined. Anyone waiting can switch to a tournament against bots instead. |
+| Sit-N-Go | Five players start with 1,500 tournament chips each. The blinds go up every 5 hands. Last player standing wins 3.5× the buy-in, and 2nd place wins 1.5×. When the multiplayer server is online, buying in opens a waiting room: each real player waiting turns a 😐 into a 😀, and a live tournament starts when 5 real players have joined. Anyone waiting can switch to a practice tournament against bots instead, and a panel at the table shows how many real players are waiting. Practice tournaments are free and pay no prizes. Leaving a live tournament early forfeits the buy-in and any prize. |
 
 You start with $10,000. You can collect $2,000 in free chips every 3 hours, or at any time when you can't afford the smallest table.
 
