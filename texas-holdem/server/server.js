@@ -591,7 +591,9 @@ function findFile(name) {
   return null;
 }
 const FILES = { '/': ['TexasHoldem.html', 'text/html; charset=utf-8'], '/index.html': ['TexasHoldem.html', 'text/html; charset=utf-8'],
-  '/TexasHoldem.html': ['TexasHoldem.html', 'text/html; charset=utf-8'], '/thumbnail.jpg': ['thumbnail.jpg', 'image/jpeg'] };
+  '/TexasHoldem.html': ['TexasHoldem.html', 'text/html; charset=utf-8'], '/thumbnail.jpg': ['thumbnail.jpg', 'image/jpeg'],
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
+  '/icon-192.png': ['icon-192.png', 'image/png'], '/icon-512.png': ['icon-512.png', 'image/png'] };
 
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];

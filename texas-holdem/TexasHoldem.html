@@ -3,9 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0b0806">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hold-em Royale">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Hold-em Royale</title>
 <link rel="icon" type="image/jpeg" href="data:image/jpeg;base64,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">
 <style>
+  :root { color-scheme: dark; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: #0b0806; overflow: hidden; color: #fff; touch-action: manipulation;
     font-family: "Segoe UI", Roboto, system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
@@ -262,6 +271,34 @@
   #actions.low { box-shadow: 0 0 0 3px #e2453c, 0 0 26px rgba(226,69,60,.8); }
   #awayBtn { position: absolute; right: 24px; bottom: 24px; font-size: 22px; padding: 16px 40px; z-index: 10; }
 
+  /* Phones show the table at about half size, so text and controls are scaled up there. */
+  body.mobile .pname { font-size: 18px; }
+  body.mobile .pchips { font-size: 23px; }
+  body.mobile .nameplate { width: 170px; left: -85px; }
+  body.mobile .tag { font-size: 17px; width: 140px; left: -70px; }
+  body.mobile .t-win { width: 180px; left: -90px; }
+  body.mobile .t-hand { font-size: 14px; }
+  body.mobile .bet { font-size: 19px; }
+  body.mobile #pot { font-size: 22px; }
+  body.mobile #msg { font-size: 22px; }
+  body.mobile #feed div { font-size: 18px; }
+  body.mobile #handName { font-size: 19px; top: 650px; }
+  body.mobile #actions { width: 500px; padding: 12px; }
+  body.mobile .preset { font-size: 16px; padding: 12px 10px; }
+  body.mobile #slider { height: 34px; }
+  body.mobile .btn-row .btn { font-size: 22px; padding: 18px 0; }
+  body.mobile #timer { height: 26px; border-radius: 13px; }
+  body.mobile #timer span { line-height: 26px; font-size: 16px; }
+  body.mobile .round-btn { width: 66px; height: 66px; font-size: 30px; }
+  body.mobile #chat { left: 98px; }
+  body.mobile #chat button { font-size: 19px; padding: 12px 20px; }
+  body.mobile #menu button { font-size: 20px; padding: 14px 14px; }
+  body.mobile #menu { width: 280px; top: 92px; }
+  body.mobile .hud { font-size: 17px; }
+  body.mobile #hudMode small { font-size: 15px; }
+  body.mobile .bubble { font-size: 18px; }
+  #installBtn { right: 94px; top: 22px; display: none; }
+  body.mobile.can-install #installBtn { display: block; }
 </style>
 </head>
 <body>
@@ -271,6 +308,7 @@
   <div id="lobby" class="screen">
     <div class="logo title gold">HOLD-EM ROYALE<small>TEXAS HOLD-EM</small></div>
     <button class="icon-btn" id="muteBtn" title="Sound (M)">🔊</button>
+    <button class="icon-btn" id="installBtn" title="Install the app">📲</button>
     <div class="panels">
       <div class="panel">
         <div class="panel-sub">PLAY ANYTIME</div>
@@ -707,7 +745,7 @@ function leaveTable() {
     if (G.mode === 'cash') { S.bankroll += G.myChips; S.seated = 0; }
     try { ws.send(JSON.stringify({ t: 'leave' })); ws.close(); } catch (e) {}
   } else if (G.mode === 'cash') { S.bankroll += G.players[0].chips; S.seated = 0; }
-  G = null; save();
+  G = null; save(); keepAwake(false);
   $('#awayBtn').classList.add('hidden');
   $('#actions').classList.add('hidden'); $('#menu').classList.add('hidden'); $('#chat').classList.add('hidden');
   $('#table').classList.add('hidden'); $('#lobby').classList.remove('hidden');
@@ -827,7 +865,7 @@ async function handleEvent(ev, s) {
     if (ev.kind === 'deal' || ev.kind === 'board' || ev.kind === 'reveal') sfx.card();
     if (ev.kind === 'action') (ev.type === 'fold' ? sfx.fold : ev.type === 'check' ? sfx.check : sfx.chip)();
   }
-  if (ev.kind === 'action' && ev.timeout && ev.seat === s.you && G.dingFor !== G.shownTurn) { G.dingFor = G.shownTurn; sfx.ding(); }
+  if (ev.kind === 'action' && ev.timeout && ev.seat === s.you && G.dingFor !== G.shownTurn) { G.dingFor = G.shownTurn; sfx.ding(); buzz(250); }
   applyState(s);
   if (ev.notice) notice(ev.notice);
   const me = s.you >= 0 ? s.seats[s.you] : null;
@@ -1007,8 +1045,21 @@ function clockLoop() {
 }
 requestAnimationFrame(clockLoop);
 
+// Keeps the phone's screen on while a game is open.
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && 'wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && G) keepAwake(true); });
+
 // ---------------------------------------------------------------- table UI
 function buildTable() {
+  keepAwake(true);
   const wrap = $('#seats'); wrap.innerHTML = ''; els.seats = []; els.bets = [];
   G.players.forEach((p, i) => {
     const s = document.createElement('div');
@@ -1420,8 +1471,9 @@ function actionPanel(o, done) {
   G.humanAct = { fold: () => $('#foldBtn').click(), call: () => $('#callBtn').click(), raise: () => canRaise && $('#raiseBtn').click() };
   $('#timer').classList.toggle('hidden', !o.timeLeft);
   $('#actions').classList.remove('hidden');
-  sfx.turn();
+  sfx.turn(); buzz([60, 50, 60]);
 }
+function buzz(pattern) { if (isPhone && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} } }
 function hideActions() { $('#actions').classList.add('hidden'); if (G) G.humanAct = null; }
 
 async function botAction(p) {
@@ -1509,6 +1561,18 @@ function goLandscape() {
   } catch (e) {}
 }
 document.addEventListener('pointerdown', goLandscape, { once: true });
+document.body.classList.toggle('mobile', isPhone);
+// Offer "Add to Home Screen": Android shows its own install prompt, iPhone needs the Share menu.
+const standalone = matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+let installPrompt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; document.body.classList.add('can-install'); });
+if (isIOS && !standalone) document.body.classList.add('can-install');
+$('#installBtn').onclick = () => {
+  sfx.click();
+  if (installPrompt) { installPrompt.prompt(); installPrompt = null; document.body.classList.remove('can-install'); return; }
+  modal('Install Hold-em Royale', 'Tap the Share button in Safari,\nthen "Add to Home Screen".\nThe game opens full screen from your home screen.', [{ label: 'OK', cls: 'btn-gold' }]);
+};
 renderLobby(); checkServer();
 </script>
 </body>
