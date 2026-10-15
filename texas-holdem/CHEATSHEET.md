@@ -21,7 +21,7 @@
 
 ## Leaderboard
 
-- The **🏆 LEADERBOARD** button in the game's lobby, and the Leaderboard panel on the Pixel Pit game page, rank players by the most chips they've ever had.
+- The **🏆 LEADERBOARD** button in the game's lobby, and the Leaderboard panel on the Pixel Pit game page, rank players by the most chips they've ever had. The game's board also shows each player's current avatar and level.
 - Only signed-in Pixel Pit players are ranked. It only works on Pixel Pit, not when the game is opened from your PC or the Render address.
 - To wipe it (as the owner): Pixel Pit game page → **Clear leaderboard**. Players get back on the next time they open the game.
 

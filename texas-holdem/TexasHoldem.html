@@ -262,13 +262,23 @@
   .q-seat.me span { color: #4aa8ff; font-weight: 800; }
   #queue p.q-note { font-size: 17px; color: #c7cbd4; margin-bottom: 22px; }
   #lb { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 45; }
+  #lb .modal-box { position: relative; }
   #lb .panel-sub { text-align: center; }
+  .lb-me { position: absolute; right: 18px; top: 16px; text-align: center; background: rgba(74,168,255,.2);
+    border: 1px solid rgba(74,168,255,.55); border-radius: 12px; padding: 5px 12px; color: #9fd0ff; }
+  .lb-me:empty { display: none; }
+  .lb-me small { display: block; font-size: 11px; letter-spacing: 2px; font-weight: 700; }
+  .lb-me b { font-size: 24px; }
   #lb h2 { font-size: 44px; text-align: center; }
-  .lb-list { list-style: none; margin: 0 0 14px; padding: 0; max-height: 420px; overflow-y: auto; }
+  .lb-list { list-style: none; margin: 0 0 14px; padding: 0; max-height: 330px; overflow-y: auto; }
   .lb-list li { display: flex; align-items: center; gap: 14px; font-size: 22px; padding: 7px 14px; border-radius: 10px; }
   .lb-list li:nth-child(odd) { background: rgba(255,255,255,.05); }
   .lb-list li.me { background: rgba(74,168,255,.22); color: #9fd0ff; font-weight: 800; }
   .lb-list .rk { width: 44px; text-align: right; color: #f0c862; font-weight: 800; }
+  .lb-list .av { width: 34px; font-size: 26px; text-align: center; }
+  .lb-list .lv { font-size: 15px; font-weight: 800; color: #c7cbd4; background: rgba(255,255,255,.08);
+    border-radius: 8px; padding: 2px 8px; }
+  .lb-list .lv:empty { display: none; }
   .lb-list .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
   .lb-list .sc { font-weight: 800; color: #ffd65a; }
   #lb p.q-note { font-size: 17px; color: #c7cbd4; margin-bottom: 22px; text-align: center; }
@@ -437,6 +447,7 @@
     </div>
   </div></div>
   <div id="lb" class="hidden"><div class="modal-box">
+    <div class="lb-me" id="lbMe"></div>
     <div class="panel-sub">RICHEST PLAYERS EVER</div>
     <h2>🏆 Leaderboard</h2><hr>
     <ol class="lb-list" id="lbList"></ol>
@@ -475,14 +486,20 @@ function save() {
   sendBest();
 }
 // On Pixel Pit, the leaderboard ranks each player's highest bankroll ever. The site keeps the best
-// score per player, so only a new high for this visit is sent.
+// score per player, so the bankroll is sent when it's a new high for this visit, or when the avatar
+// or level shown next to it on the board changes.
 const onPixelPit = !!(window.PixelPit && PixelPit.available);
-let sentBest = 0;
-function sendBest() {
-  if (!onPixelPit || S.bankroll <= sentBest) return;
-  sentBest = S.bankroll;
-  try { PixelPit.submitScore(S.bankroll).catch(() => {}); } catch (e) {}
+// Changes are batched for a second, so quick avatar clicks send only the last one.
+let sentBest = 0, sentInfo = '', sendTimer = 0;
+function sendBest(now) {
+  if (!onPixelPit) return;
+  if (!now) { clearTimeout(sendTimer); sendTimer = setTimeout(() => sendBest(true), 1000); return; }
+  const info = { avatar: S.avatar, level: level().l }, key = JSON.stringify(info);
+  if (S.bankroll <= sentBest && key === sentInfo) return Promise.resolve();
+  sentBest = Math.max(sentBest, S.bankroll); sentInfo = key;
+  try { return PixelPit.submitScore(S.bankroll, info).catch(() => {}); } catch (e) { return Promise.resolve(); }
 }
+addEventListener('pagehide', () => { clearTimeout(sendTimer); sendBest(true); });
 save();
 // Ask the browser to keep the save long-term instead of clearing it when space runs low or after a week away.
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
@@ -770,31 +787,36 @@ $('#sngPlay').onclick = () => startSng(S.sngSel);
 $('#sngPractice').onclick = () => startGame('sng', S.sngSel);
 
 // ---------------------------------------------------------------- leaderboard
-function lbRow(rank, name, score, me) {
+function lbRow(rank, name, score, me, info) {
   const li = document.createElement('li'); if (me) li.className = 'me';
-  [['rk', rank ? '#' + rank : ''], ['nm', name], ['sc', fmt(score)]].forEach(([c, t]) => {
+  info = info || {};
+  const av = typeof info.avatar === 'string' && info.avatar.length <= 8 ? info.avatar : DEF.avatar;
+  const lv = Number.isInteger(info.level) && info.level > 0 ? 'LV ' + info.level : '';
+  [['rk', rank ? '#' + rank : ''], ['av', av], ['nm', name], ['lv', lv], ['sc', fmt(score)]].forEach(([c, t]) => {
     const s = document.createElement('span'); s.className = c; s.textContent = t; li.appendChild(s);
   });
   return li;
 }
 async function showLeaderboard() {
   sfx.click();
-  const list = $('#lbList'), note = $('#lbNote');
-  list.innerHTML = ''; note.textContent = 'Loading…';
+  const list = $('#lbList'), note = $('#lbNote'), badge = $('#lbMe');
+  list.innerHTML = ''; badge.innerHTML = ''; note.textContent = 'Loading…';
   $('#lb').classList.remove('hidden');
   if (!onPixelPit) { note.textContent = 'The leaderboard lives on Pixel Pit.\nPlay Hold-em Royale there to see it and get ranked.'; return; }
-  sendBest();
+  clearTimeout(sendTimer); await sendBest(true);   // so the board includes the latest
   let board = null, user = null;
-  try { [board, user] = await Promise.all([PixelPit.getLeaderboard(), PixelPit.getUser()]); } catch (e) {}
+  try { [board, user] = await Promise.all([PixelPit.getLeaderboard(50), PixelPit.getUser()]); } catch (e) {}
   if (!board) { note.textContent = "Couldn't load the leaderboard. Try again in a moment."; return; }
   const meName = board.me && board.me.username;
-  board.top.forEach((r, i) => list.appendChild(lbRow(i + 1, r.username, r.score, r.username === meName)));
+  board.top.forEach((r, i) => list.appendChild(lbRow(i + 1, r.username, r.score, r.username === meName, r.info)));
   if (!board.top.length) note.textContent = 'No one is on the board yet.';
   else if (board.me && board.me.rank > board.top.length) {
-    list.appendChild(lbRow(board.me.rank, board.me.username, board.me.score, true)); note.textContent = '';
+    list.appendChild(lbRow(board.me.rank, board.me.username, board.me.score, true, board.me.info)); note.textContent = '';
   } else note.textContent = '';
   if (!user) note.textContent = (note.textContent ? note.textContent + '\n' : '') + 'Sign in to Pixel Pit to get on the leaderboard.';
-  else if (board.me) note.textContent = 'Your richest ever: ' + fmt(board.me.score) + ' · rank #' + board.me.rank;
+  else if (board.me) note.textContent = 'Your richest ever: ' + fmt(board.me.score);
+  // Your rank stays in the corner, so you can see it even when your row is far down the list.
+  if (user) badge.innerHTML = board.me ? '<small>YOUR RANK</small><b>#' + board.me.rank + '</b>' : '<small>YOUR RANK</small><b>–</b>';
 }
 $('#lbBtn').onclick = showLeaderboard;
 $('#lbClose').onclick = () => { sfx.click(); $('#lb').classList.add('hidden'); };

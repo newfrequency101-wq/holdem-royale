@@ -43,7 +43,7 @@ Your bankroll, stats and settings are saved in the browser's local storage.
 
 ## Leaderboard
 
-When the game runs on Pixel Pit, it sends each signed-in player's bankroll to the Pixel Pit leaderboard (`PixelPit.submitScore`) whenever it reaches a new high. Pixel Pit keeps each player's best, so the board ranks the richest bankroll each player has ever had, and losing chips later doesn't lower it. The **🏆 LEADERBOARD** button in the lobby shows the top 10 and your own rank. The same ranking appears in the Leaderboard panel on the game's Pixel Pit page.
+When the game runs on Pixel Pit, it sends each signed-in player's bankroll to the Pixel Pit leaderboard (`PixelPit.submitScore`) whenever it reaches a new high. Pixel Pit keeps each player's best, so the board ranks the richest bankroll each player has ever had, and losing chips later doesn't lower it. Each row also shows the player's current avatar and level, which the game sends along with the score (`PixelPit.submitScore(bankroll, { avatar, level })`) whenever they change. The **🏆 LEADERBOARD** button in the lobby shows the top 50 in a scrolling list, with your own rank in the corner (and your row at the bottom if you are further down). The same ranking appears in the Leaderboard panel on the game's Pixel Pit page.
 
 Opened anywhere else (your PC, or the Render address), the button explains that the leaderboard lives on Pixel Pit. The multiplayer server isn't involved.
 
