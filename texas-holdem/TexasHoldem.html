@@ -417,7 +417,7 @@
     <div class="q-seats" id="qSeats"></div>
     <p class="q-note" id="qNote"></p>
     <div class="modal-btns">
-      <button class="btn btn-gold" id="qBots">PLAY WITH BOTS<small>FREE PRACTICE</small></button>
+      <button class="btn btn-gold" id="qBots">PRACTICE WHILE YOU WAIT<small>FREE · YOU STAY IN THE QUEUE</small></button>
       <button class="btn btn-slate" id="qCancel">CANCEL</button>
     </div>
   </div></div>
@@ -498,7 +498,7 @@ function noise(d, v = .1, freq = 3000) {
 }
 const sfx = {
   chip() { tone(2400, .05, 'triangle', .07); tone(1800, .06, 'triangle', .05, .035); },
-  flip() { playSample('flip', .8) || noise(.07, .25, 2500); },
+  flip() { playSample('flip', .2) || noise(.07, .08, 2500); },
   shuffle() { playSample('shuffle', .7); },
   check() { playSample('check', .1) || (tone(320, .05, 'square', .04), tone(320, .05, 'square', .04, .09)); },
   fold() { tone(300, .18, 'sine', .07, 0, 150); },
@@ -728,6 +728,11 @@ $('#sngPlay').onclick = () => startSng(S.sngSel);
 $('#sngPractice').onclick = () => startGame('sng', S.sngSel);
 
 // ---------------------------------------------------------------- modal
+// Message for the rebuy prompt after busting at a cash table.
+function bustText(buy) {
+  return `You ran out of chips at this table.\nYour balance: ${fmt(S.bankroll)}\n` +
+    (S.bankroll >= buy ? `Buy back in for ${fmt(buy)}?` : `You need ${fmt(buy)} to buy back in.`);
+}
 function modal(title, body, buttons) {
   return new Promise(res => {
     $('#mTitle').textContent = title; $('#mBody').textContent = body;
@@ -764,6 +769,7 @@ function startGame(mode, idx) {
   if (S.bankroll < cost) return;
   S.bankroll -= cost;
   G = { mode, idx, practice: mode === 'sng', token: Math.random(), players: [], dealer: -1, handNo: 0, board: [], turn: -1 };
+  if (G.practice && Q) { Q.practicing = true; $('#queue').classList.add('hidden'); }  // stay queued while practicing
   if (mode === 'cash') {
     const c = CASH[idx]; G.sb = c.sb; G.bb = c.bb; S.seated = cost;
     G.players.push({ name: S.name, avatar: S.avatar, chips: cost, isHuman: true });
@@ -792,6 +798,8 @@ function leaveTable() {
   $('#actions').classList.add('hidden'); $('#menu').classList.add('hidden'); $('#chat').classList.add('hidden');
   $('#table').classList.add('hidden'); $('#lobby').classList.remove('hidden');
   renderLobby();
+  // Leaving a practice game while still queued goes back to the waiting room.
+  if (Q && Q.practicing) { Q.practicing = false; renderQueue(); $('#queue').classList.remove('hidden'); }
 }
 
 // Moves every visible bet into the pot.
@@ -982,7 +990,7 @@ function bustOnline() {
   if (G.bustOpen) return;
   const g = G, c = CASH[G.idx];
   g.bustOpen = true;
-  modal('Busted!', 'You ran out of chips at this table.\nBuy back in and keep playing?', [
+  modal('Busted!', bustText(c.buy), [
     { label: 'REBUY', sub: fmt(c.buy), cls: 'btn-gold', value: 'rebuy', disabled: S.bankroll < c.buy },
     { label: 'LOBBY', cls: 'btn-slate', value: 'lobby' }]).then(v => {
     if (G !== g) return;
@@ -999,15 +1007,26 @@ async function updateLiveQueue() {
   const show = !!(G && G.practice && wsUrl());
   $('#liveQ').classList.toggle('hidden', !show);
   if (!show) return;
+  // Practicing from the waiting room keeps you in the queue, so the count comes straight from it.
+  const queued = !!(Q && Q.practicing);
   let n = 0;
-  try { const r = await fetch(httpUrl() + '/health', { cache: 'no-store' }); n = r.ok ? ((await r.json()).sng || [])[G.idx] || 0 : 0; }
-  catch (e) { $('#liveQ').classList.add('hidden'); return; }
-  if (!G || !G.practice) return;
+  if (queued) n = Q.players ? Q.players.length : 0;
+  else {
+    try { const r = await fetch(httpUrl() + '/health', { cache: 'no-store' }); n = r.ok ? ((await r.json()).sng || [])[G.idx] || 0 : 0; }
+    catch (e) { $('#liveQ').classList.add('hidden'); return; }
+    if (!G || !G.practice) return;
+  }
   $('#liveQFaces').textContent = '😀'.repeat(n) + '😐'.repeat(5 - n);
-  $('#liveQTxt').textContent = n + '/5 waiting';
+  $('#liveQTxt').textContent = queued ? n + "/5 · you're in the queue" : n + '/5 waiting';
+  $('#liveQJoin').textContent = queued ? 'LEAVE QUEUE' : 'JOIN LIVE';
 }
 setInterval(updateLiveQueue, 5000);
-$('#liveQJoin').onclick = () => { if (!G || !G.practice) return; sfx.click(); const idx = G.idx; leaveTable(); startSng(idx); };
+$('#liveQJoin').onclick = () => {
+  if (!G || !G.practice) return;
+  sfx.click();
+  if (Q && Q.practicing) { closeQueue(); notice('You left the live queue'); updateLiveQueue(); return; }
+  const idx = G.idx; leaveTable(); startSng(idx);
+};
 
 // ---------------------------------------------------------------- Sit-N-Go waiting room
 // Buying in waits for five real players; anyone can switch to a tournament against bots instead.
@@ -1023,11 +1042,19 @@ function startSng(idx) {
   ws.onopen = () => ws.send(JSON.stringify({ t: 'sngJoin', stage: idx, name: S.name, avatar: S.avatar }));
   ws.onmessage = e => {
     let m; try { m = JSON.parse(e.data); } catch (err) { return; }
-    if (m.t === 'queue' && Q && Q.ws === ws) { Q.players = m.players; renderQueue(); }
-    else if (m.t === 'joined' && m.mode === 'sng' && Q && Q.ws === ws) { Q = null; hideQueue(); startOnline(ws, idx, 'sng'); }
+    if (m.t === 'queue' && Q && Q.ws === ws) { Q.players = m.players; if (Q.practicing) updateLiveQueue(); else renderQueue(); }
+    else if (m.t === 'joined' && m.mode === 'sng' && Q && Q.ws === ws) {
+      // Five players are in: end any practice game and move to the live tournament.
+      const wasPracticing = Q.practicing;
+      Q = null; hideQueue();
+      if (G) { $('#modal').classList.add('hidden'); leaveTable(); }
+      startOnline(ws, idx, 'sng');
+      if (wasPracticing) { notice('🏆 5 players joined: your live tournament is starting!'); sfx.win(); buzz([100, 60, 100]); }
+    }
     else if (G && G.ws === ws) { G.queue.push(m); pump(); }
   };
   ws.onclose = async () => {
+    if (Q && Q.ws === ws && Q.practicing) { Q = null; notice('Lost connection to the live queue'); updateLiveQueue(); return; }
     if (Q && Q.ws === ws) {
       Q = null; hideQueue();
       const v = await modal('Server Unavailable', 'Couldn\'t reach the game server for a live tournament.\nPlay against bots instead?', [
@@ -1057,7 +1084,7 @@ function renderQueue() {
     box.appendChild(d);
   }
   if (n > before && before > 0) sfx.chip();
-  $('#qNote').textContent = `The tournament starts as soon as 5 real players have joined. Your ${fmt(buy)} buy-in is only taken when it starts.`;
+  $('#qNote').textContent = `The tournament starts as soon as 5 real players have joined. Your ${fmt(buy)} buy-in is only taken when it starts. You can practice against bots while you wait.`;
 }
 function hideQueue() { $('#queue').classList.add('hidden'); renderLobby(); }
 function closeQueue() {
@@ -1067,7 +1094,7 @@ function closeQueue() {
   hideQueue(); checkServer();
 }
 $('#qCancel').onclick = () => { sfx.click(); closeQueue(); };
-$('#qBots').onclick = () => { sfx.click(); const idx = Q.idx; closeQueue(); startGame('sng', idx); };
+$('#qBots').onclick = () => { sfx.click(); if (Q) startGame('sng', Q.idx); };
 
 function connectionLost() {
   const g = G;
@@ -1261,7 +1288,7 @@ async function runTable(tok) {
     if (G.mode === 'cash') {
       if (P[0].chips <= 0) {
         const c = CASH[G.idx];
-        const v = await modal('Busted!', 'You ran out of chips at this table.\nBuy back in and keep playing?', [
+        const v = await modal('Busted!', bustText(c.buy), [
           { label: 'REBUY', sub: fmt(c.buy), cls: 'btn-gold', value: 'rebuy', disabled: S.bankroll < c.buy },
           { label: 'LOBBY', cls: 'btn-slate', value: 'lobby' }]);
         if (!alive(tok)) return;
