@@ -957,7 +957,7 @@ let Q = null;
 function startSng(idx) {
   if (S.bankroll < SNG[idx].buy) return;
   ac(); goLandscape();
-  if (!wsUrl() || !netInfo) { startGame('sng', idx); return; }
+  if (!wsUrl()) { startGame('sng', idx); return; }
   let ws;
   try { ws = new WebSocket(wsUrl()); } catch (e) { startGame('sng', idx); return; }
   Q = { ws, idx, players: null };
@@ -968,10 +968,17 @@ function startSng(idx) {
     else if (m.t === 'joined' && m.mode === 'sng' && Q && Q.ws === ws) { Q = null; hideQueue(); startOnline(ws, idx, 'sng'); }
     else if (G && G.ws === ws) { G.queue.push(m); pump(); }
   };
-  ws.onclose = () => {
-    if (Q && Q.ws === ws) { Q = null; hideQueue(); modal('Connection Lost', 'Couldn\'t reach the game server.\nTry again, or play against bots.', [{ label: 'OK', cls: 'btn-gold' }]); }
-    else if (G && G.ws === ws) connectionLost();
+  ws.onclose = async () => {
+    if (Q && Q.ws === ws) {
+      Q = null; hideQueue();
+      const v = await modal('Server Unavailable', 'Couldn\'t reach the game server for a live tournament.\nPlay against bots instead?', [
+        { label: 'PLAY WITH BOTS', cls: 'btn-gold', value: 'bots', disabled: S.bankroll < SNG[idx].buy },
+        { label: 'CANCEL', cls: 'btn-slate', value: 'cancel' }]);
+      if (v === 'bots' && !G) startGame('sng', idx);
+    } else if (G && G.ws === ws) connectionLost();
   };
+  // A sleeping server can take a while to wake up; give up after 30 seconds without an answer.
+  setTimeout(() => { if (Q && Q.ws === ws && !Q.players) ws.close(); }, 30000);
   renderQueue();
   $('#queue').classList.remove('hidden');
 }
