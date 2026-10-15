@@ -604,7 +604,8 @@ const server = http.createServer((req, res) => {
   }
   const f = FILES[url] && findFile(FILES[url][0]);
   if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain' }); res.end('Not found'); return; }
-  res.writeHead(200, { 'Content-Type': FILES[url][1] });
+  // Browsers (phones especially) must check for a new version of the game page on every visit.
+  res.writeHead(200, { 'Content-Type': FILES[url][1], 'Cache-Control': f.endsWith('.html') ? 'no-cache, must-revalidate' : 'public, max-age=3600' });
   if (f.endsWith('.html')) {
     // A page served from here should talk to this server, whatever SERVER_URL the file was given.
     res.end(fs.readFileSync(f, 'utf8').replace(/const SERVER_URL = '[^']*';/, "const SERVER_URL = '';"));
