@@ -176,7 +176,7 @@ class Table {
     const s = {
       you, reserved, mode: this.mode, stage: this.stage, handNo: this.handNo, sb: this.sb, bb: this.bb, buy: this.buy,
       dealer: this.dealer, board: this.board,
-      turn: this.turn, turnId: this.turnId, turnLeft: this.actionResolve ? Math.max(0, this.deadline - Date.now()) : 0,
+      inHand: this.inHand, turn: this.turn, turnId: this.turnId, turnLeft: this.actionResolve ? Math.max(0, this.deadline - Date.now()) : 0,
       msg: this.msg, winCards: this.winCards,
       seats: this.seats.map((p, i) => ({
         name: p.name, avatar: p.avatar, chips: p.chips, bet: p.bet || 0, total: p.total || 0, folded: !!p.folded,

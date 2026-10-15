@@ -36,7 +36,7 @@ You start with $10,000. You can collect $2,000 in free chips every 3 hours, or a
 - Opponents with their own personalities, from tight and cautious to loose and aggressive
 - A win-chance meter that estimates your odds against the players still in the hand (you can hide it from the menu)
 - A profile that tracks your hands played, win rate, biggest pot, Sit-N-Go wins and best hand ever
-- Sound effects synthesized with the Web Audio API, so there are no audio files to load
+- Recorded card sounds (shuffle, deal, flip and check) embedded in the page, plus synthesized chip and alert sounds, so there are no audio files to load
 
 Your bankroll, stats and settings are saved in the browser's local storage.
 
