@@ -300,23 +300,23 @@ class Table {
         if (p.isBot) { this.deadline = 0; this.emit({ kind: 'turn' }); await sleep(550 + Math.random() * 750); a = botDecide(this, p); }
         else a = await this.humanAction(p);
         this.turn = -1;
-        if (needs(p)) { this.applyAction(i, a); this.emit({ kind: 'action', seat: i, type: p.lastAction }); }
+        if (needs(p)) { this.applyAction(i, a); this.emit({ kind: 'action', seat: i, type: p.lastAction, timeout: !!a.timeout }); }
       }
       i = (i + 1) % 5;
     }
   }
 
   humanAction(p) {
-    const auto = () => ({ type: this.currentBet - p.bet === 0 ? 'check' : 'fold' });
+    const auto = timeout => ({ type: this.currentBet - p.bet === 0 ? 'check' : 'fold', timeout });
     if (!p.client) return Promise.resolve({ type: 'fold' });
-    if (p.away) { this.emit({ kind: 'turn' }); return sleep(700).then(auto); }
+    if (p.away) { this.emit({ kind: 'turn' }); return sleep(700).then(() => auto(false)); }
     return new Promise(res => {
       this.deadline = Date.now() + TURN_TIME;
       const done = a => { clearTimeout(timer); this.actionResolve = null; res(a); };
       const timer = setTimeout(() => {
         p.timeouts = (p.timeouts || 0) + 1;
         if (p.timeouts >= AWAY_AFTER) { p.away = true; this.emit({ kind: 'notice', notice: `${p.name} is sitting out` }); }
-        done(auto());
+        done(auto(true));
       }, TURN_TIME);
       this.actionResolve = (a, fromPlayer) => { if (fromPlayer) p.timeouts = 0; done(a); };
       this.emit({ kind: 'turn' });
