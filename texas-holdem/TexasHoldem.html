@@ -112,6 +112,8 @@
   .coin { width: 38px; height: 38px; border-radius: 50%; background: radial-gradient(#ffe68a, #e6a516 60%, #a86b00);
     border: 2px solid #ffd65a; display: grid; place-items: center; font-size: 15px; color: #7a4a00; font-weight: 900; }
   .free { margin-left: auto; text-align: center; }
+  .save-warn { font-size: 15px; font-weight: 700; color: #ffd0a8; background: rgba(160,40,20,.55); border: 1px solid rgba(255,140,100,.5);
+    border-radius: 12px; padding: 8px 14px; line-height: 1.35; }
   .free .btn { font-size: 22px; padding: 12px 30px; }
   .free div { font-size: 14px; color: #f3d2a8; margin-top: 6px; height: 18px; }
 
@@ -366,6 +368,7 @@
     </div>
     <div class="lobby-bottom">
       <div class="pill"><span class="coin">$</span><span id="bankroll"></span></div>
+      <div class="save-warn hidden" id="saveWarn">⚠️ This browser isn't saving your progress (private window?).<br>Your chips and name will reset when you close it.</div>
       <div class="free"><button class="btn btn-gold" id="freeBtn">FREE $2,000</button><div id="freeTxt"></div></div>
     </div>
   </div>
@@ -443,8 +446,17 @@ try {
   if (raw) S = Object.assign(S, raw, { stats: Object.assign(S.stats, raw.stats || {}) });
 } catch (e) {}
 if (S.seated > 0) { S.bankroll += S.seated; S.seated = 0; }  // chips left on a table when the page closed
-function save() { try { localStorage.setItem('holdemRoyale', JSON.stringify(S)); } catch (e) {} }
+// Saves report whether they worked, so the lobby can warn when the browser won't keep them.
+let canSave = true;
+function save() {
+  try {
+    localStorage.setItem('holdemRoyale', JSON.stringify(S));
+    canSave = localStorage.getItem('holdemRoyale') !== null;
+  } catch (e) { canSave = false; }
+}
 save();
+// Ask the browser to keep the save long-term instead of clearing it when space runs low or after a week away.
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
 
 // ---------------------------------------------------------------- sound
 let AC = null;
@@ -660,6 +672,7 @@ function level() { const h = S.stats.hands; const l = Math.floor(Math.sqrt(h / 3
 
 function renderLobby() {
   $('#bankroll').textContent = fmt(S.bankroll);
+  $('#saveWarn').classList.toggle('hidden', canSave);
   $('#muteBtn').textContent = S.muted ? '🔇' : '🔊';
   const c = CASH[S.cashSel];
   $('#cashName').textContent = 'STAGE ' + (S.cashSel + 1);
@@ -1681,6 +1694,12 @@ $('#installBtn').onclick = () => {
   modal('Install Hold-em Royale', 'Tap the Share button in Safari,\nthen "Add to Home Screen".\nThe game opens full screen from your home screen.', [{ label: 'OK', cls: 'btn-gold' }]);
 };
 renderLobby(); checkServer();
+// On Pixel Pit, players who haven't picked a name start with their site username.
+if (window.PixelPit && PixelPit.available && S.name === DEF.name) {
+  PixelPit.getUser().then(u => {
+    if (u && u.username && S.name === DEF.name) { S.name = String(u.username).slice(0, 12); save(); if (!G) renderLobby(); }
+  }).catch(() => {});
+}
 </script>
 </body>
 </html>
