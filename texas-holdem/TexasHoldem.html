@@ -1,0 +1,1132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hold-em Royale</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0b0806; overflow: hidden; color: #fff;
+    font-family: "Segoe UI", Roboto, system-ui, sans-serif; user-select: none; -webkit-user-select: none; }
+  #stage { position: absolute; left: 50%; top: 50%; width: 1280px; height: 720px; overflow: hidden;
+    transform-origin: center; border-radius: 14px;
+    background:
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(0,0,0,.78) 100%),
+      repeating-conic-gradient(from 45deg, rgba(255,255,255,.035) 0 25%, rgba(0,0,0,.08) 0 50%) 0 0/56px 56px,
+      linear-gradient(#8a4a22, #6b3517); }
+  .hidden { display: none !important; }
+  .screen { position: absolute; inset: 0; }
+  .title { font-family: Impact, "Arial Black", sans-serif; letter-spacing: 2px; font-weight: 400; }
+  .gold { color: #f0c862; text-shadow: 0 2px 0 #6b4a12, 0 0 14px rgba(255,200,80,.35); }
+
+  .btn { border: 0; cursor: pointer; font: inherit; font-weight: 800; border-radius: 40px; padding: 12px 28px;
+    color: #fff; transition: transform .08s, filter .15s; white-space: nowrap; }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:active { transform: scale(.96); }
+  .btn:disabled { filter: grayscale(.85) brightness(.55); cursor: default; transform: none; }
+  .btn-gold { background: linear-gradient(#ffe07a, #f2b51c 55%, #d48f06); color: #5a2e00;
+    box-shadow: 0 4px 0 #8a5600, 0 6px 14px rgba(0,0,0,.5); text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+  .btn-brown { background: linear-gradient(#cf7c42, #9c5326); box-shadow: 0 4px 0 #5e2e10, inset 0 1px 0 rgba(255,255,255,.3); }
+  .btn-slate { background: linear-gradient(#636c80, #3a4050); box-shadow: 0 4px 0 #20242e; }
+  .btn-red { background: linear-gradient(#e85a4f, #b02a22); box-shadow: 0 4px 0 #6d1510; }
+  .btn-green { background: linear-gradient(#3cc47c, #1d8a51); box-shadow: 0 4px 0 #0e5430; }
+
+  /* ---------- lobby ---------- */
+  .logo { position: absolute; left: 40px; top: 22px; font-size: 46px; }
+  .logo small { font-size: 20px; color: #e3b9a0; text-shadow: none; letter-spacing: 6px; margin-left: 10px; }
+  .icon-btn { position: absolute; width: 52px; height: 52px; border-radius: 50%; border: 2px solid rgba(240,200,98,.6);
+    background: rgba(0,0,0,.35); color: #fff; font-size: 24px; cursor: pointer; }
+  #muteBtn { right: 30px; top: 22px; }
+  .panels { position: absolute; left: 40px; right: 40px; top: 100px; height: 480px; display: flex; gap: 24px; }
+  .panel { flex: 1; position: relative; border-radius: 16px; padding: 22px 26px; text-align: center;
+    background: linear-gradient(rgba(214,128,70,.55), rgba(150,72,30,.55));
+    border: 2px solid rgba(255,190,130,.35); box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+  .panel-sub { font-size: 15px; letter-spacing: 8px; color: #f3d2a8; font-weight: 700; }
+  .panel-title { font-size: 52px; line-height: 1.05; margin: 4px 0 10px; }
+  .blue { color: #3fb2ff; text-shadow: 0 3px 0 #0b3a77, 0 0 16px rgba(80,170,255,.4); }
+  .green { color: #2fe09a; text-shadow: 0 3px 0 #0b5a3a, 0 0 16px rgba(60,230,150,.35); }
+  .picker { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 6px 0 12px; }
+  .arrow { width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; font-size: 28px; font-weight: 900;
+    color: #fff; background: linear-gradient(#cf7c42, #9c5326); box-shadow: 0 3px 0 #5e2e10; line-height: 1; }
+  .arrow:disabled { opacity: .3; cursor: default; }
+  .stage-name { font-size: 30px; width: 170px; }
+  .stage-name.hr { color: #ffd65a; }
+  .kv { font-size: 18px; color: #f6dcc0; margin: 4px 0; letter-spacing: 1px; }
+  .kv b { color: #fff; font-size: 22px; margin-left: 6px; }
+  .mini-felt { margin: 18px auto 18px; width: 260px; height: 120px; border-radius: 60px; position: relative;
+    background: radial-gradient(#22a063, #0d5733); border: 8px solid #1d1d21; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  .mini-felt span { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #2b2d36;
+    border: 2px solid #c9a24a; font-size: 15px; display: grid; place-items: center; }
+  .mini-felt em { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal;
+    font-weight: 800; color: rgba(255,255,255,.75); font-size: 15px; }
+  .panel .btn.big { font-size: 24px; padding: 14px 0; width: 100%; position: absolute; left: 26px; right: 26px; bottom: 24px; width: auto; }
+  .prize-label { color: #ffd65a; font-weight: 800; font-size: 18px; }
+  .prize { font-size: 64px; font-weight: 900; line-height: 1; margin: 2px 0 8px;
+    background: linear-gradient(#fff3b0, #ffc928 50%, #e08a00); -webkit-background-clip: text; background-clip: text;
+    color: transparent; filter: drop-shadow(0 3px 0 #6b3a00); }
+  .faces { font-size: 34px; letter-spacing: 6px; margin: 14px 0; }
+  .lock { font-size: 14px; color: #ffb3a1; margin-top: 4px; height: 18px; }
+
+  .profile-top { display: flex; align-items: center; gap: 16px; text-align: left; margin-top: 6px; }
+  .avatar-lg { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; font-size: 54px;
+    background: radial-gradient(#3b3f4d, #1b1d24); border: 3px solid #c9a24a; cursor: pointer; flex: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+  .pname-lg { font-size: 26px; font-weight: 800; cursor: pointer; }
+  .pname-lg:after { content: " ✎"; font-size: 16px; opacity: .6; }
+  .lvl { font-size: 15px; color: #f6dcc0; margin-top: 4px; }
+  .lvl b { color: #fff; font-size: 20px; }
+  .xpbar { width: 150px; height: 9px; border-radius: 5px; background: rgba(0,0,0,.45); margin-top: 5px; overflow: hidden; }
+  .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #3fb2ff, #7fd4ff); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 14px; }
+  .stat { background: rgba(0,0,0,.28); border-radius: 10px; padding: 7px 4px; }
+  .stat div { font-size: 12px; color: #f3d2a8; letter-spacing: 1px; }
+  .stat b { font-size: 20px; }
+  .best-label { font-size: 13px; color: #f3d2a8; letter-spacing: 1px; margin-bottom: 6px; }
+  .best-cards { display: flex; gap: 5px; justify-content: center; min-height: 74px; align-items: center; color: #e9c6a8; }
+
+  .lobby-bottom { position: absolute; left: 0; right: 0; bottom: 0; height: 120px; display: flex; align-items: center;
+    gap: 22px; padding: 0 40px; background: linear-gradient(transparent, rgba(0,0,0,.6) 40%); }
+  .pill { background: rgba(10,10,14,.75); border-radius: 30px; padding: 8px 24px 8px 10px; font-size: 26px; font-weight: 800;
+    display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,.12); }
+  .coin { width: 38px; height: 38px; border-radius: 50%; background: radial-gradient(#ffe68a, #e6a516 60%, #a86b00);
+    border: 2px solid #ffd65a; display: grid; place-items: center; font-size: 15px; color: #7a4a00; font-weight: 900; }
+  .free { margin-left: auto; text-align: center; }
+  .free .btn { font-size: 22px; padding: 12px 30px; }
+  .free div { font-size: 14px; color: #f3d2a8; margin-top: 6px; height: 18px; }
+
+  /* ---------- table ---------- */
+  #rail { position: absolute; left: 110px; top: 110px; width: 1060px; height: 480px; border-radius: 240px;
+    background: linear-gradient(#34343a, #121214); box-shadow: 0 24px 60px rgba(0,0,0,.75), inset 0 2px 0 rgba(255,255,255,.15); }
+  #felt { position: absolute; inset: 22px; border-radius: 220px; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 40%, #24a566, #137544 55%, #0b5230); box-shadow: inset 0 0 50px rgba(0,0,0,.6); }
+  #felt:after { content: ""; position: absolute; inset: 12px; border-radius: 210px; border: 2px solid rgba(240,200,98,.45); }
+  #feltLogo { position: absolute; left: 0; right: 0; top: 300px; text-align: center; font-size: 34px;
+    color: rgba(255,255,255,.08); }
+  #board { position: absolute; left: 640px; top: 330px; transform: translate(-50%,-50%); display: flex; gap: 8px; }
+  .slot { width: 70px; height: 98px; border-radius: 8px; border: 2px dashed rgba(255,255,255,.13); position: relative; }
+  .slot .card { position: absolute; left: -2px; top: -2px; }
+  #pot { position: absolute; left: 640px; top: 252px; transform: translate(-50%,-50%); background: rgba(0,0,0,.5);
+    border-radius: 20px; padding: 4px 16px 4px 6px; display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 18px; }
+  #pot small { color: #bfe8cf; font-size: 13px; letter-spacing: 1px; }
+  #msg { position: absolute; left: 640px; top: 410px; transform: translateX(-50%); font-weight: 800; font-size: 18px;
+    color: #ffe58a; text-shadow: 0 2px 4px rgba(0,0,0,.8); white-space: nowrap; text-align: center; }
+
+  .card { position: relative; width: 52px; height: 74px; border-radius: 6px; background: linear-gradient(#fff, #e9ecf2);
+    color: #15151a; box-shadow: 0 2px 6px rgba(0,0,0,.55); font-weight: 800; flex: none; transition: transform .25s, filter .25s, box-shadow .25s; }
+  .card .r { position: absolute; left: 5px; top: 3px; font-size: 20px; line-height: 1; letter-spacing: -1px; }
+  .card .s { position: absolute; left: 6px; top: 23px; font-size: 15px; line-height: 1; }
+  .card .big { position: absolute; right: 5px; bottom: 3px; font-size: 30px; line-height: 1; }
+  .card.red { color: #d21f2b; }
+  .card.back { background: repeating-linear-gradient(45deg, #b3262e 0 6px, #8e1a21 6px 12px); border: 3px solid #f4f4f4; }
+  .card.md { width: 70px; height: 98px; border-radius: 8px; }
+  .card.md .r { font-size: 27px; left: 6px; } .card.md .s { font-size: 20px; top: 31px; left: 8px; } .card.md .big { font-size: 42px; }
+  .card.lg { width: 78px; height: 108px; border-radius: 8px; }
+  .card.lg .r { font-size: 30px; left: 7px; } .card.lg .s { font-size: 22px; top: 35px; left: 9px; } .card.lg .big { font-size: 46px; }
+  .card.deal { animation: deal .35s ease-out both; }
+  .card.flip { animation: flip .4s ease-out both; }
+  @keyframes deal { from { transform: translate(0,-60px) scale(.5) rotate(-15deg); opacity: 0; } }
+  @keyframes flip { from { transform: rotateY(90deg); } }
+  .card.win { box-shadow: 0 0 0 3px #ffd34d, 0 0 20px #ffd34d; transform: translateY(-8px); }
+  .card.dim { filter: brightness(.45); }
+
+  .seat { position: absolute; width: 0; height: 0; }
+  .seat .avatar { position: absolute; left: -42px; top: -42px; width: 84px; height: 84px; border-radius: 50%;
+    background: radial-gradient(#3e4352, #1b1d24); border: 3px solid #c9a24a; display: grid; place-items: center;
+    font-size: 46px; box-shadow: 0 4px 12px rgba(0,0,0,.6); transition: border-color .2s, box-shadow .2s; }
+  .seat.turn .avatar { border-color: #5dff9d; animation: pulse .8s infinite alternate; }
+  @keyframes pulse { from { box-shadow: 0 0 0 3px rgba(93,255,157,.3), 0 0 14px #5dff9d; }
+                     to { box-shadow: 0 0 0 7px rgba(93,255,157,.15), 0 0 30px #5dff9d; } }
+  .seat.folded .avatar, .seat.folded .cards { opacity: .4; }
+  .seat.out .avatar, .seat.out .nameplate { opacity: .35; }
+  .nameplate { position: absolute; left: -72px; top: 38px; width: 144px; text-align: center; background: rgba(10,10,14,.85);
+    border-radius: 10px; padding: 3px 0 4px; border: 1px solid rgba(255,255,255,.12); }
+  .pname { font-size: 14px; color: #cfd3dc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; }
+  .pchips { font-size: 17px; font-weight: 800; color: #ffd86b; }
+  .seat .cards { position: absolute; top: -37px; display: flex; gap: 4px; }
+  .seat.cr .cards { left: 50px; }
+  .seat.cl .cards { right: 50px; flex-direction: row-reverse; }
+  .seat.me .cards { left: 64px; top: -86px; gap: 8px; }
+  .tag { position: absolute; left: -58px; top: -76px; width: 116px; text-align: center; font-weight: 900; font-size: 14px;
+    padding: 4px 0; border-radius: 8px; background: #333; box-shadow: 0 2px 6px rgba(0,0,0,.5); animation: pop .25s ease-out; }
+  .tag:empty { display: none; }
+  .t-fold { background: #555b66; } .t-check { background: #2f73c9; } .t-call { background: #1d9a58; }
+  .t-raise { background: #e08a12; } .t-allin { background: #d3302a; } .t-hand { background: #24272f; font-size: 12px; }
+  .t-win { background: linear-gradient(#ffe07a, #f2b51c); color: #5a2e00; font-size: 13px; width: 150px; left: -75px; }
+  .bubble { position: absolute; left: 34px; top: -104px; background: #eef1f6; color: #222; padding: 6px 14px; border-radius: 16px;
+    font-weight: 700; white-space: nowrap; box-shadow: 0 3px 8px rgba(0,0,0,.5); animation: pop .25s ease-out; z-index: 5; }
+  .seat.cl .bubble { left: auto; right: 34px; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } }
+  .bet { position: absolute; transform: translate(-50%,-50%); display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,.55);
+    padding: 3px 12px 3px 4px; border-radius: 20px; font-weight: 800; font-size: 15px; transition: left .4s, top .4s, opacity .4s; z-index: 3; }
+  .chip { width: 22px; height: 22px; border-radius: 50%; background: #d8262f; border: 3px dashed #fff; box-shadow: 0 0 0 2px #9c1119; display: inline-block; flex: none; }
+  .chip.g { background: #e6a516; box-shadow: 0 0 0 2px #8a5a00; }
+  #dbtn { position: absolute; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(#fff, #d6d6d6);
+    color: #111; font-weight: 900; font-size: 15px; display: grid; place-items: center; transform: translate(-50%,-50%);
+    box-shadow: 0 2px 6px rgba(0,0,0,.6); transition: left .5s, top .5s; }
+
+  #handName { position: absolute; left: 584px; top: 652px; width: 170px; text-align: center; font-weight: 800; font-size: 15px;
+    color: #fff; background: rgba(0,0,0,.55); border-radius: 10px; padding: 4px 0; }
+  #handName:empty { display: none; }
+  #meter { position: absolute; left: 262px; top: 612px; width: 190px; background: rgba(10,10,14,.75); border-radius: 12px;
+    padding: 7px 12px; border: 1px solid rgba(255,255,255,.1); }
+  #meter div { display: flex; justify-content: space-between; font-size: 12px; letter-spacing: 1px; color: #c7cbd4; font-weight: 700; }
+  #meter b { color: #fff; font-size: 14px; }
+  #meter .bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,.12); margin-top: 5px; overflow: hidden; display: block; }
+  #meter .bar i { display: block; height: 100%; width: 0; transition: width .5s, background .5s; border-radius: 5px; }
+
+  #actions { position: absolute; right: 14px; bottom: 12px; width: 488px; background: rgba(12,12,16,.88); border-radius: 16px;
+    padding: 10px; border: 1px solid rgba(255,255,255,.12); box-shadow: 0 8px 24px rgba(0,0,0,.6); animation: pop .2s ease-out; }
+  .raise-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .preset { border: 0; cursor: pointer; background: #3a4050; color: #fff; font: inherit; font-size: 12px; font-weight: 800;
+    border-radius: 8px; padding: 7px 8px; }
+  .preset:hover { background: #4a5266; }
+  .preset:disabled { opacity: .35; cursor: default; }
+  #slider { flex: 1; accent-color: #f2b51c; min-width: 0; }
+  .btn-row { display: flex; gap: 8px; }
+  .btn-row .btn { flex: 1; padding: 13px 0; font-size: 17px; }
+
+  .hud { position: absolute; background: rgba(8,8,10,.8); border-radius: 12px; padding: 8px 14px; border: 1px solid rgba(255,255,255,.1); }
+  #hudMode { left: 84px; top: 16px; font-weight: 800; font-size: 15px; color: #f0c862; }
+  #hudMode small { display: block; color: #c7cbd4; font-weight: 600; font-size: 13px; }
+  #hudBlinds { right: 16px; top: 16px; text-align: center; font-family: Consolas, monospace; }
+  #hudBlinds div { font-size: 11px; color: #9aa0ab; letter-spacing: 2px; font-family: "Segoe UI", sans-serif; }
+  #hudBlinds b { font-size: 18px; color: #ffe58a; }
+  .round-btn { position: absolute; width: 54px; height: 54px; border-radius: 50%; border: 0; cursor: pointer; color: #fff;
+    font-size: 24px; background: rgba(20,20,26,.85); box-shadow: 0 3px 10px rgba(0,0,0,.5); }
+  #menuBtn { left: 16px; top: 16px; }
+  #chatBtn { left: 22px; bottom: 18px; }
+  #menu { position: absolute; left: 16px; top: 80px; background: rgba(16,16,22,.96); border-radius: 14px; padding: 8px;
+    width: 230px; border: 1px solid rgba(255,255,255,.12); z-index: 20; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+  #menu button { display: block; width: 100%; text-align: left; background: none; border: 0; color: #fff; font: inherit;
+    font-size: 16px; font-weight: 600; padding: 11px 12px; border-radius: 8px; cursor: pointer; }
+  #menu button:hover { background: rgba(255,255,255,.08); }
+  #chat { position: absolute; left: 86px; bottom: 18px; display: grid; grid-template-columns: repeat(3, auto); gap: 8px; z-index: 20; }
+  #chat button { border: 0; cursor: pointer; background: #eef1f6; color: #222; font: inherit; font-weight: 700; font-size: 15px;
+    padding: 8px 16px; border-radius: 18px; box-shadow: 0 3px 8px rgba(0,0,0,.5); }
+  .fly { position: absolute; transform: translate(-50%,-50%); transition: left .6s ease-in-out, top .6s ease-in-out, opacity .6s; z-index: 6;
+    display: flex; gap: 2px; }
+
+  /* ---------- modal ---------- */
+  #modal { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 50; }
+  .modal-box { width: 640px; background: linear-gradient(#3a3e4b, #262932); border-radius: 22px; padding: 36px 40px 34px;
+    text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.15); animation: pop .25s ease-out; }
+  .modal-box h2 { margin: 0 0 6px; font-size: 52px; color: #e6e9f0; text-shadow: 0 3px 0 rgba(0,0,0,.45); }
+  .modal-box hr { border: 0; height: 1px; background: rgba(255,255,255,.12); margin: 14px 0 20px; }
+  .modal-box p { font-size: 24px; line-height: 1.45; margin: 0 0 28px; white-space: pre-line; }
+  .modal-btns { display: flex; gap: 16px; justify-content: center; }
+  .modal-btns .btn { font-size: 24px; padding: 16px 34px; }
+  .modal-btns .btn small { display: block; font-size: 14px; opacity: .8; }
+
+  #rotate { display: none; }
+  @media (orientation: portrait) and (max-width: 700px) {
+    #rotate { display: block; position: fixed; left: 0; right: 0; bottom: 16px; text-align: center; color: #e3b9a0; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+
+  <!-- LOBBY -->
+  <div id="lobby" class="screen">
+    <div class="logo title gold">HOLD-EM ROYALE<small>TEXAS HOLD-EM</small></div>
+    <button class="icon-btn" id="muteBtn" title="Sound (M)">🔊</button>
+    <div class="panels">
+      <div class="panel">
+        <div class="panel-sub">PLAY ANYTIME</div>
+        <div class="panel-title title blue">CASH GAME</div>
+        <div class="picker"><button class="arrow" data-pick="cash" data-d="-1">‹</button>
+          <div class="stage-name title" id="cashName"></div><button class="arrow" data-pick="cash" data-d="1">›</button></div>
+        <div class="kv">STAKES <b id="cashBlinds"></b></div>
+        <div class="kv">BUY-IN <b id="cashBuy"></b></div>
+        <div class="mini-felt"><em id="cashMini">5 PLAYERS</em>
+          <span style="left:117px;top:-16px">🤠</span><span style="left:-14px;top:38px">🦊</span>
+          <span style="right:-14px;top:38px">🐱</span><span style="left:52px;bottom:-16px">🐻</span><span style="right:52px;bottom:-16px">😎</span></div>
+        <div class="lock" id="cashLock"></div>
+        <button class="btn btn-brown big" id="cashPlay">PLAY NOW</button>
+      </div>
+      <div class="panel">
+        <div class="panel-sub">TOURNAMENT</div>
+        <div class="panel-title title green">SIT-N-GO</div>
+        <div class="picker"><button class="arrow" data-pick="sng" data-d="-1">‹</button>
+          <div class="stage-name title" id="sngName"></div><button class="arrow" data-pick="sng" data-d="1">›</button></div>
+        <div class="prize-label">1st PRIZE</div>
+        <div class="prize" id="sngP1"></div>
+        <div class="kv">2nd PRIZE <b id="sngP2"></b></div>
+        <div class="faces">😐😐😐😐😐</div>
+        <div class="lock" id="sngLock"></div>
+        <button class="btn btn-gold big" id="sngPlay">BUY-IN</button>
+      </div>
+      <div class="panel">
+        <div class="panel-title title gold" style="font-size:40px">PROFILE</div>
+        <div class="profile-top">
+          <div class="avatar-lg" id="myAvatar" title="Change avatar"></div>
+          <div><div class="pname-lg" id="myName" title="Change name"></div>
+            <div class="lvl">LEVEL <b id="myLvl"></b></div><div class="xpbar"><i id="myXp"></i></div></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div>HANDS</div><b id="stHands">0</b></div>
+          <div class="stat"><div>WIN RATE</div><b id="stRate">0%</b></div>
+          <div class="stat"><div>BIGGEST POT</div><b id="stPot">$0</b></div>
+          <div class="stat"><div>SIT-N-GO WINS</div><b id="stSng">0</b></div>
+        </div>
+        <div class="best-label">BEST HAND <span id="bestName"></span></div>
+        <div class="best-cards" id="bestCards"></div>
+      </div>
+    </div>
+    <div class="lobby-bottom">
+      <div class="pill"><span class="coin">$</span><span id="bankroll"></span></div>
+      <div class="free"><button class="btn btn-gold" id="freeBtn">FREE $2,000</button><div id="freeTxt"></div></div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div id="table" class="screen hidden">
+    <div id="rail"><div id="felt"><div id="feltLogo" class="title">HOLD-EM ROYALE</div></div></div>
+    <div id="pot"><i class="chip g"></i><small>POT</small><span id="potTxt">$0</span></div>
+    <div id="board"></div>
+    <div id="msg"></div>
+    <div id="seats"></div>
+    <div id="dbtn">D</div>
+    <div id="handName"></div>
+    <div id="meter"><div><span>WIN CHANCE</span><b id="meterTxt">–</b></div><span class="bar"><i id="meterBar"></i></span></div>
+    <div class="hud" id="hudMode"></div>
+    <div class="hud" id="hudBlinds"><div>BLINDS</div><b id="blindsTxt"></b><div id="nextTxt"></div></div>
+    <button class="round-btn" id="menuBtn" title="Menu">☰</button>
+    <div id="menu" class="hidden">
+      <button id="mLeave">🚪 Leave table</button>
+      <button id="mSound"></button>
+      <button id="mMeter"></button>
+      <button id="mSpeed"></button>
+    </div>
+    <button class="round-btn" id="chatBtn" title="Chat">💬</button>
+    <div id="chat" class="hidden"></div>
+    <div id="actions" class="hidden">
+      <div class="raise-row">
+        <button class="preset" data-p="min">MIN</button>
+        <button class="preset" data-p="0.5">½ POT</button>
+        <button class="preset" data-p="1">POT</button>
+        <button class="preset" data-p="all">ALL-IN</button>
+        <input type="range" id="slider">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-red" id="foldBtn">FOLD</button>
+        <button class="btn btn-green" id="callBtn">CHECK</button>
+        <button class="btn btn-gold" id="raiseBtn">RAISE</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal" class="hidden"><div class="modal-box"><h2 id="mTitle"></h2><hr><p id="mBody"></p><div class="modal-btns" id="mBtns"></div></div></div>
+</div>
+<div id="rotate">Rotate your phone for a bigger table</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+
+// ---------------------------------------------------------------- save data
+const FREE_AMOUNT = 2000, FREE_EVERY = 3 * 3600 * 1000;
+const DEF = { bankroll: 10000, name: 'You', avatar: '😎', freeAt: 0, seated: 0, cashSel: 0, sngSel: 0,
+  muted: false, fast: false, meter: true,
+  stats: { hands: 0, wins: 0, biggest: 0, sngWins: 0, bestScore: -1, bestCards: [], bestName: '' } };
+let S = JSON.parse(JSON.stringify(DEF));
+try {
+  const raw = JSON.parse(localStorage.getItem('holdemRoyale') || 'null');
+  if (raw) S = Object.assign(S, raw, { stats: Object.assign(S.stats, raw.stats || {}) });
+} catch (e) {}
+if (S.seated > 0) { S.bankroll += S.seated; S.seated = 0; }  // chips left on a table when the page closed
+function save() { try { localStorage.setItem('holdemRoyale', JSON.stringify(S)); } catch (e) {} }
+save();
+
+// ---------------------------------------------------------------- sound
+let AC = null;
+function ac() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(f, d, type = 'sine', v = .12, delay = 0, slideTo = 0) {
+  if (S.muted) return; const a = ac(); if (!a) return;
+  const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + d + .02);
+}
+function noise(d, v = .1, freq = 3000) {
+  if (S.muted) return; const a = ac(); if (!a) return;
+  const b = a.createBuffer(1, a.sampleRate * d, a.sampleRate), ch = b.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
+  const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  f.type = 'bandpass'; f.frequency.value = freq; g.gain.value = v;
+  s.buffer = b; s.connect(f).connect(g).connect(a.destination); s.start();
+}
+const sfx = {
+  chip() { tone(2400, .05, 'triangle', .07); tone(1800, .06, 'triangle', .05, .035); },
+  card() { noise(.07, .25, 2500); },
+  check() { tone(320, .05, 'square', .04); tone(320, .05, 'square', .04, .09); },
+  fold() { tone(300, .18, 'sine', .07, 0, 150); },
+  turn() { tone(880, .09, 'sine', .08); tone(1320, .12, 'sine', .07, .08); },
+  win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, .22, 'triangle', .11, i * .09)); },
+  lose() { [392, 330, 262].forEach((f, i) => tone(f, .25, 'triangle', .09, i * .13)); },
+  click() { tone(660, .04, 'square', .03); },
+};
+
+// ---------------------------------------------------------------- cards & hand evaluation
+const RANKS = '23456789TJQKA', SUITS = '♠♥♦♣';
+const rankOf = c => c % 13 + 2, suitOf = c => (c / 13) | 0;
+const rStr = r => r === 10 ? '10' : RANKS[r - 2];
+const P5 = 759375; // 15^5
+
+function eval5(cs) {
+  const r = cs.map(rankOf).sort((a, b) => b - a);
+  const s0 = suitOf(cs[0]);
+  const flush = suitOf(cs[1]) === s0 && suitOf(cs[2]) === s0 && suitOf(cs[3]) === s0 && suitOf(cs[4]) === s0;
+  const cnt = {};
+  for (const x of r) cnt[x] = (cnt[x] || 0) + 1;
+  const g = Object.keys(cnt).map(k => [cnt[k], +k]).sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+  let sh = 0;
+  if (g.length === 5) {
+    if (r[0] - r[4] === 4) sh = r[0];
+    else if (r[0] === 14 && r[1] === 5) sh = 5;
+  }
+  let cat, k;
+  if (sh && flush) { cat = 8; k = [sh]; }
+  else if (g[0][0] === 4) { cat = 7; k = [g[0][1], g[1][1]]; }
+  else if (g[0][0] === 3 && g[1][0] === 2) { cat = 6; k = [g[0][1], g[1][1]]; }
+  else if (flush) { cat = 5; k = r; }
+  else if (sh) { cat = 4; k = [sh]; }
+  else if (g[0][0] === 3) { cat = 3; k = g.map(x => x[1]); }
+  else if (g[0][0] === 2 && g[1][0] === 2) { cat = 2; k = g.map(x => x[1]); }
+  else if (g[0][0] === 2) { cat = 1; k = g.map(x => x[1]); }
+  else { cat = 0; k = r; }
+  let sc = cat;
+  for (let i = 0; i < 5; i++) sc = sc * 15 + (k[i] || 0);
+  return sc;
+}
+const COMBOS = {};
+for (const n of [5, 6, 7]) {
+  const out = [];
+  const rec = (start, cur) => {
+    if (cur.length === 5) { out.push(cur.slice()); return; }
+    for (let i = start; i < n; i++) { cur.push(i); rec(i + 1, cur); cur.pop(); }
+  };
+  rec(0, []); COMBOS[n] = out;
+}
+function bestScore(cards) {
+  let best = -1;
+  for (const cb of COMBOS[cards.length]) {
+    const s = eval5([cards[cb[0]], cards[cb[1]], cards[cb[2]], cards[cb[3]], cards[cb[4]]]);
+    if (s > best) best = s;
+  }
+  return best;
+}
+function bestHand(cards) {
+  let best = -1, five = null;
+  for (const cb of COMBOS[cards.length]) {
+    const f = cb.map(i => cards[i]), s = eval5(f);
+    if (s > best) { best = s; five = f; }
+  }
+  return { score: best, cards: five, name: handName(best) };
+}
+const NAME = { 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace' };
+const nm = r => NAME[r] || String(r);
+const pl = r => r === 6 ? 'Sixes' : nm(r) + 's';
+function handName(sc) {
+  const k = []; let s = sc;
+  for (let i = 4; i >= 0; i--) { k[i] = s % 15; s = Math.floor(s / 15); }
+  switch (s) {
+    case 0: return nm(k[0]) + ' High';
+    case 1: return 'Pair of ' + pl(k[0]);
+    case 2: return 'Two Pair, ' + pl(k[0]) + ' & ' + pl(k[1]);
+    case 3: return 'Three ' + pl(k[0]);
+    case 4: return 'Straight, ' + nm(k[0]) + ' High';
+    case 5: return 'Flush, ' + nm(k[0]) + ' High';
+    case 6: return 'Full House, ' + pl(k[0]) + ' over ' + pl(k[1]);
+    case 7: return 'Four ' + pl(k[0]);
+    default: return k[0] === 14 ? 'Royal Flush' : 'Straight Flush, ' + nm(k[0]) + ' High';
+  }
+}
+function shortHandName(cards) {
+  if (cards.length >= 5) return handName(bestScore(cards));
+  const [a, b] = cards.map(rankOf);
+  return a === b ? 'Pair of ' + pl(a) : nm(Math.max(a, b)) + ' High';
+}
+// Monte Carlo win chance against nOpp random hands
+function equity(hole, board, nOpp, iters) {
+  if (nOpp <= 0) return 1;
+  const used = new Set(hole.concat(board)), rest = [];
+  for (let c = 0; c < 52; c++) if (!used.has(c)) rest.push(c);
+  const need = nOpp * 2 + 5 - board.length;
+  let won = 0;
+  for (let it = 0; it < iters; it++) {
+    for (let i = 0; i < need; i++) {
+      const j = i + Math.floor(Math.random() * (rest.length - i));
+      const t = rest[i]; rest[i] = rest[j]; rest[j] = t;
+    }
+    const b = board.concat(rest.slice(nOpp * 2, need));
+    const mine = bestScore(hole.concat(b));
+    let lost = false, ties = 0;
+    for (let o = 0; o < nOpp; o++) {
+      const s = bestScore([rest[o * 2], rest[o * 2 + 1]].concat(b));
+      if (s > mine) { lost = true; break; }
+      if (s === mine) ties++;
+    }
+    if (!lost) won += 1 / (ties + 1);
+  }
+  return won / iters;
+}
+function cardEl(c, size = '', anim = '') {
+  const d = document.createElement('div');
+  if (c == null) { d.className = `card back ${size} ${anim}`; return d; }
+  const su = SUITS[suitOf(c)];
+  d.className = `card ${size} ${anim} ${suitOf(c) === 1 || suitOf(c) === 2 ? 'red' : ''}`;
+  d.dataset.c = c;
+  d.innerHTML = `<span class="r">${rStr(rankOf(c))}</span><span class="s">${su}</span><span class="big">${su}</span>`;
+  return d;
+}
+
+// ---------------------------------------------------------------- formatting
+const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
+function short(n) {
+  if (n >= 1e6) return '$' + +(n / 1e6).toFixed(n % 1e6 ? 1 : 0) + 'M';
+  if (n >= 1e4) return '$' + +(n / 1e3).toFixed(n % 1e3 ? 1 : 0) + 'K';
+  return fmt(n);
+}
+const ord = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+
+// ---------------------------------------------------------------- game config
+const CASH = [
+  { sb: 10, bb: 20, buy: 2000 }, { sb: 50, bb: 100, buy: 10000 }, { sb: 250, bb: 500, buy: 50000 },
+  { sb: 1000, bb: 2000, buy: 200000 }, { sb: 5000, bb: 10000, buy: 1000000 },
+];
+const SNG = [{ buy: 1000 }, { buy: 5000 }, { buy: 25000 }, { buy: 100000 }, { buy: 500000 }];
+const SNG_STACK = 1500, SNG_HANDS_PER_LEVEL = 5;
+const SNG_BLINDS = [[10, 20], [15, 30], [25, 50], [50, 100], [75, 150], [100, 200], [150, 300], [200, 400],
+  [300, 600], [500, 1000], [750, 1500], [1000, 2000]];
+const BOTS = [['Rosie', '👩‍🦰'], ['Duke', '🤠'], ['Kitty', '🐱'], ['Viper', '🐍'], ['Big Al', '🧔'], ['Lucky', '🍀'],
+  ['Foxy', '🦊'], ['Bruno', '🐻'], ['Mia', '👩'], ['Tex', '🎩'], ['Pumpkin', '🎃'], ['Doc', '🧐'], ['Nana', '👵'],
+  ['Robo', '🤖'], ['Shark', '🦈'], ['Rocky', '🦍'], ['Queenie', '👸'], ['Pixel', '👾']];
+const AVATARS = ['😎', '🙂', '🤠', '🧐', '😈', '🤖', '👽', '🐯', '🐼', '🦁', '🐸', '👑'];
+const CHAT = ['Nice hand', 'Good game', 'Wow!', 'No way!', 'Good luck', '😂'];
+
+const SEAT = [{ x: 520, y: 628, side: 'me' }, { x: 150, y: 360, side: 'cr' }, { x: 395, y: 118, side: 'cr' },
+  { x: 885, y: 118, side: 'cl' }, { x: 1130, y: 360, side: 'cl' }];
+const BET = [{ x: 640, y: 470 }, { x: 345, y: 372 }, { x: 445, y: 228 }, { x: 835, y: 228 }, { x: 935, y: 372 }];
+const DBTN = [{ x: 430, y: 588 }, { x: 240, y: 425 }, { x: 500, y: 182 }, { x: 780, y: 182 }, { x: 1040, y: 425 }];
+const POT_XY = { x: 640, y: 252 };
+
+// ---------------------------------------------------------------- lobby
+function level() { const h = S.stats.hands; const l = Math.floor(Math.sqrt(h / 3)) + 1;
+  const a = 3 * (l - 1) ** 2, b = 3 * l ** 2; return { l, pct: (h - a) / (b - a) }; }
+
+function renderLobby() {
+  $('#bankroll').textContent = fmt(S.bankroll);
+  $('#muteBtn').textContent = S.muted ? '🔇' : '🔊';
+  const c = CASH[S.cashSel];
+  $('#cashName').textContent = 'STAGE ' + (S.cashSel + 1);
+  $('#cashName').classList.toggle('hr', S.cashSel === CASH.length - 1);
+  $('#cashBlinds').textContent = short(c.sb) + '/' + short(c.bb);
+  $('#cashBuy').textContent = fmt(c.buy);
+  $('#cashMini').textContent = S.cashSel === CASH.length - 1 ? 'HIGH ROLLER' : '5 PLAYERS';
+  $('#cashPlay').disabled = S.bankroll < c.buy;
+  $('#cashLock').textContent = S.bankroll < c.buy ? 'Need ' + fmt(c.buy) + ' to sit here' : '';
+  const s = SNG[S.sngSel];
+  $('#sngName').textContent = 'STAGE ' + (S.sngSel + 1);
+  $('#sngName').classList.toggle('hr', S.sngSel === SNG.length - 1);
+  $('#sngP1').textContent = short(s.buy * 3.5);
+  $('#sngP2').textContent = short(s.buy * 1.5);
+  $('#sngPlay').textContent = 'BUY-IN ' + short(s.buy);
+  $('#sngPlay').disabled = S.bankroll < s.buy;
+  $('#sngLock').textContent = S.bankroll < s.buy ? 'Need ' + fmt(s.buy) + ' to enter' : '';
+  document.querySelectorAll('[data-pick]').forEach(b => {
+    const sel = b.dataset.pick === 'cash' ? S.cashSel : S.sngSel, max = (b.dataset.pick === 'cash' ? CASH : SNG).length - 1;
+    b.disabled = (+b.dataset.d < 0 && sel === 0) || (+b.dataset.d > 0 && sel === max);
+  });
+  $('#myAvatar').textContent = S.avatar;
+  $('#myName').textContent = S.name;
+  const lv = level(); $('#myLvl').textContent = lv.l; $('#myXp').style.width = (lv.pct * 100) + '%';
+  const st = S.stats;
+  $('#stHands').textContent = st.hands.toLocaleString('en-US');
+  $('#stRate').textContent = st.hands ? Math.round(st.wins / st.hands * 100) + '%' : '0%';
+  $('#stPot').textContent = short(st.biggest);
+  $('#stSng').textContent = st.sngWins;
+  const bc = $('#bestCards'); bc.innerHTML = '';
+  if (st.bestCards.length) {
+    $('#bestName').textContent = '· ' + st.bestName.toUpperCase();
+    st.bestCards.slice().sort((a, b) => rankOf(b) - rankOf(a)).forEach(c => bc.appendChild(cardEl(c)));
+  } else { $('#bestName').textContent = ''; bc.textContent = 'Win a showdown to record one!'; }
+  renderFree();
+}
+function freeReady() { return Date.now() >= S.freeAt || S.bankroll < CASH[0].buy; }
+function renderFree() {
+  const ready = freeReady();
+  $('#freeBtn').disabled = !ready;
+  if (ready) { $('#freeTxt').textContent = 'Ready to collect!'; return; }
+  const t = Math.max(0, S.freeAt - Date.now()) / 1000;
+  const p = n => String(Math.floor(n)).padStart(2, '0');
+  $('#freeTxt').textContent = 'Next in ' + p(t / 3600) + ':' + p(t % 3600 / 60) + ':' + p(t % 60);
+}
+setInterval(() => { if (!G) renderFree(); }, 1000);
+
+document.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => {
+  sfx.click();
+  const key = b.dataset.pick === 'cash' ? 'cashSel' : 'sngSel', max = (b.dataset.pick === 'cash' ? CASH : SNG).length - 1;
+  S[key] = Math.max(0, Math.min(max, S[key] + +b.dataset.d)); save(); renderLobby();
+});
+$('#freeBtn').onclick = () => {
+  if (!freeReady()) return;
+  S.bankroll += FREE_AMOUNT; S.freeAt = Date.now() + FREE_EVERY; save(); sfx.win(); renderLobby();
+};
+$('#muteBtn').onclick = () => { S.muted = !S.muted; save(); renderLobby(); sfx.click(); };
+$('#myAvatar').onclick = () => { S.avatar = AVATARS[(AVATARS.indexOf(S.avatar) + 1) % AVATARS.length]; save(); renderLobby(); sfx.click(); };
+$('#myName').onclick = () => {
+  const n = prompt('Your name:', S.name);
+  if (n && n.trim()) { S.name = n.trim().slice(0, 12); save(); renderLobby(); }
+};
+$('#cashPlay').onclick = () => startGame('cash', S.cashSel);
+$('#sngPlay').onclick = () => startGame('sng', S.sngSel);
+
+// ---------------------------------------------------------------- modal
+function modal(title, body, buttons) {
+  return new Promise(res => {
+    $('#mTitle').textContent = title; $('#mBody').textContent = body;
+    const box = $('#mBtns'); box.innerHTML = '';
+    buttons.forEach(b => {
+      const el = document.createElement('button');
+      el.className = 'btn ' + b.cls; el.innerHTML = b.label + (b.sub ? `<small>${b.sub}</small>` : '');
+      el.disabled = !!b.disabled;
+      el.onclick = () => { sfx.click(); $('#modal').classList.add('hidden'); res(b.value); };
+      box.appendChild(el);
+    });
+    $('#modal').classList.remove('hidden');
+  });
+}
+
+// ---------------------------------------------------------------- game state
+let G = null;
+const els = { seats: [], bets: [], slots: [] };
+const alive = tok => G && G.token === tok;
+const sleep = ms => new Promise(r => setTimeout(r, ms * (S.fast ? .5 : 1)));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+function newBot(stack) {
+  const used = G.players.filter(Boolean).map(p => p.name);
+  const pool = BOTS.filter(b => !used.includes(b[0]));
+  const [name, avatar] = pool[Math.floor(Math.random() * pool.length)];
+  return { name, avatar, chips: stack, isHuman: false, aggr: .6 + Math.random() * .9, loose: .7 + Math.random() * .6 };
+}
+
+function startGame(mode, idx) {
+  ac();
+  const cost = mode === 'cash' ? CASH[idx].buy : SNG[idx].buy;
+  if (S.bankroll < cost) return;
+  S.bankroll -= cost;
+  G = { mode, idx, token: Math.random(), players: [], dealer: -1, handNo: 0, board: [], turn: -1 };
+  if (mode === 'cash') {
+    const c = CASH[idx]; G.sb = c.sb; G.bb = c.bb; S.seated = cost;
+    G.players.push({ name: S.name, avatar: S.avatar, chips: cost, isHuman: true });
+    for (let i = 1; i < 5; i++) G.players.push(newBot(botStack()));
+  } else {
+    G.sb = SNG_BLINDS[0][0]; G.bb = SNG_BLINDS[0][1];
+    G.players.push({ name: S.name, avatar: S.avatar, chips: SNG_STACK, isHuman: true });
+    for (let i = 1; i < 5; i++) G.players.push(newBot(SNG_STACK));
+  }
+  G.dealer = Math.floor(Math.random() * 5);
+  save();
+  $('#lobby').classList.add('hidden'); $('#table').classList.remove('hidden');
+  buildTable(); runTable(G.token);
+}
+function botStack() { const c = CASH[G.idx]; return Math.round(c.buy * (.5 + Math.random() * 1.1) / c.bb) * c.bb; }
+
+function leaveTable() {
+  if (!G) return;
+  if (G.mode === 'cash') { S.bankroll += G.players[0].chips; S.seated = 0; }
+  G = null; save();
+  $('#actions').classList.add('hidden'); $('#menu').classList.add('hidden'); $('#chat').classList.add('hidden');
+  $('#table').classList.add('hidden'); $('#lobby').classList.remove('hidden');
+  renderLobby();
+}
+
+// ---------------------------------------------------------------- table UI
+function buildTable() {
+  const wrap = $('#seats'); wrap.innerHTML = ''; els.seats = []; els.bets = [];
+  G.players.forEach((p, i) => {
+    const s = document.createElement('div');
+    s.className = 'seat ' + SEAT[i].side; s.style.left = SEAT[i].x + 'px'; s.style.top = SEAT[i].y + 'px';
+    s.innerHTML = '<div class="cards"></div><div class="avatar"></div><div class="nameplate"><div class="pname"></div><div class="pchips"></div></div><div class="tag"></div>';
+    wrap.appendChild(s); els.seats.push(s);
+    const b = document.createElement('div');
+    b.className = 'bet hidden'; b.style.left = BET[i].x + 'px'; b.style.top = BET[i].y + 'px';
+    b.innerHTML = '<i class="chip"></i><span></span>';
+    wrap.appendChild(b); els.bets.push(b);
+  });
+  const board = $('#board'); board.innerHTML = ''; els.slots = [];
+  for (let i = 0; i < 5; i++) { const sl = document.createElement('div'); sl.className = 'slot'; board.appendChild(sl); els.slots.push(sl); }
+  const c = G.mode === 'cash' ? CASH[G.idx] : SNG[G.idx];
+  $('#hudMode').innerHTML = G.mode === 'cash'
+    ? `CASH GAME · STAGE ${G.idx + 1}<small>Buy-in ${fmt(c.buy)}</small>`
+    : `SIT-N-GO · STAGE ${G.idx + 1}<small>1st ${short(c.buy * 3.5)} · 2nd ${short(c.buy * 1.5)}</small>`;
+  const chat = $('#chat'); chat.innerHTML = '';
+  CHAT.forEach(t => { const b = document.createElement('button'); b.textContent = t;
+    b.onclick = () => { say(0, t); chat.classList.add('hidden'); maybeReply(t); }; chat.appendChild(b); });
+  renderMenu(); $('#msg').textContent = ''; $('#handName').textContent = '';
+  $('#meter').classList.toggle('hidden', !S.meter); setMeter(null);
+  renderAll();
+}
+function renderMenu() {
+  $('#mSound').textContent = (S.muted ? '🔇 Sound: off' : '🔊 Sound: on');
+  $('#mMeter').textContent = '📊 Win chance: ' + (S.meter ? 'shown' : 'hidden');
+  $('#mSpeed').textContent = '⏩ Speed: ' + (S.fast ? 'fast' : 'normal');
+  $('#mLeave').textContent = G && G.mode === 'sng' ? '🚪 Leave (forfeit buy-in)' : '🚪 Leave table';
+}
+function renderSeat(i) {
+  const p = G.players[i], s = els.seats[i];
+  s.querySelector('.avatar').textContent = p.avatar;
+  s.querySelector('.pname').textContent = p.name;
+  s.querySelector('.pchips').textContent = p.out ? 'OUT · ' + ord(p.rank) : fmt(p.chips);
+  s.classList.toggle('turn', G.turn === i);
+  s.classList.toggle('folded', !!p.folded && !p.sitOut);
+  s.classList.toggle('out', !!(p.out || p.sitOut));
+  const faceUp = p.isHuman || p.showCards;
+  const key = (p.cards || []).join(',') + '|' + faceUp;
+  if (s.dataset.key !== key) {
+    const prevN = +(s.dataset.n || 0), wasUp = s.dataset.up === 'true';
+    const box = s.querySelector('.cards'); box.innerHTML = '';
+    (p.cards || []).forEach((c, k) => {
+      const anim = k >= prevN ? 'deal' : (faceUp && !wasUp ? 'flip' : '');
+      box.appendChild(cardEl(faceUp ? c : null, p.isHuman ? 'lg' : '', anim));
+    });
+    s.dataset.key = key; s.dataset.n = (p.cards || []).length; s.dataset.up = faceUp;
+  }
+  const b = els.bets[i];
+  if (p.bet > 0) { b.classList.remove('hidden'); b.querySelector('span').textContent = fmt(p.bet); }
+  else b.classList.add('hidden');
+}
+function renderAll() {
+  if (!G) return;
+  G.players.forEach((_, i) => renderSeat(i));
+  const d = DBTN[Math.max(0, G.dealer)]; $('#dbtn').style.left = d.x + 'px'; $('#dbtn').style.top = d.y + 'px';
+  $('#potTxt').textContent = fmt(G.players.reduce((a, p) => a + (p.total || 0) - (p.bet || 0), 0));
+  $('#blindsTxt').textContent = short(G.sb) + '/' + short(G.bb);
+  if (G.mode === 'sng') {
+    const lv = Math.floor(Math.max(0, G.handNo - 1) / SNG_HANDS_PER_LEVEL);
+    const left = SNG_HANDS_PER_LEVEL - (Math.max(0, G.handNo - 1) % SNG_HANDS_PER_LEVEL) - 1;
+    $('#nextTxt').textContent = lv >= SNG_BLINDS.length - 1 ? 'MAX LEVEL' : left === 0 ? 'UP NEXT HAND' : 'UP IN ' + (left + 1) + ' HANDS';
+  } else $('#nextTxt').textContent = 'CASH TABLE';
+}
+function renderBoard() {
+  G.board.forEach((c, k) => {
+    if (!els.slots[k].firstChild) { els.slots[k].appendChild(cardEl(c, 'md', 'deal')); }
+  });
+}
+function setTag(i, text, cls) {
+  const t = els.seats[i].querySelector('.tag');
+  t.className = 'tag ' + (cls || ''); t.textContent = text;
+  t.style.animation = 'none'; t.offsetWidth; t.style.animation = '';
+}
+function clearTags(keepSticky) {
+  G.players.forEach((p, i) => { if (!keepSticky || !(p.folded || p.allIn)) setTag(i, ''); });
+}
+function say(i, text) {
+  const s = els.seats[i]; const old = s.querySelector('.bubble'); if (old) old.remove();
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text; s.appendChild(b);
+  setTimeout(() => b.remove(), 2600);
+}
+function maybeReply(text) {
+  if (!G || Math.random() > .55) return;
+  const bots = G.players.map((p, i) => i).filter(i => i > 0 && !G.players[i].out);
+  if (!bots.length) return;
+  const replies = { 'Nice hand': ['Thanks!', 'Lucky river 😅'], 'Good game': ['GG!', 'Good game!'], 'Wow!': ['Wow!', '😮'],
+    'No way!': ['Way! 😎', 'Believe it!'], 'Good luck': ['You too!', 'Good luck!'], '😂': ['😂', '😆'] }[text] || ['🙂'];
+  setTimeout(() => G && say(bots[Math.floor(Math.random() * bots.length)], replies[Math.floor(Math.random() * replies.length)]), 700 + Math.random() * 800);
+}
+function botChat(i, list, chance) { if (Math.random() < chance) say(i, list[Math.floor(Math.random() * list.length)]); }
+function setMeter(v) {
+  if (v == null) { $('#meterTxt').textContent = '–'; $('#meterBar').style.width = '0'; return; }
+  $('#meterTxt').textContent = Math.round(v * 100) + '%';
+  const bar = $('#meterBar'); bar.style.width = (v * 100) + '%';
+  bar.style.background = v > .6 ? '#3cdc84' : v > .35 ? '#f2c21c' : v > .18 ? '#f08a24' : '#e2453c';
+}
+function updateHumanInfo() {
+  const h = G.players[0];
+  if (!h.cards || !h.cards.length || h.folded) { $('#handName').textContent = ''; setMeter(null); return; }
+  $('#handName').textContent = shortHandName(h.cards.concat(G.board));
+  if (S.meter) {
+    const opp = G.players.filter((p, i) => i > 0 && !p.folded).length;
+    setMeter(equity(h.cards, G.board, opp, 500));
+  }
+}
+function flyChips(toIdx, amount) {
+  const f = document.createElement('div'); f.className = 'fly';
+  f.innerHTML = '<i class="chip g"></i><i class="chip g"></i><i class="chip g"></i>';
+  f.style.left = POT_XY.x + 'px'; f.style.top = POT_XY.y + 'px';
+  $('#table').appendChild(f); f.offsetWidth;
+  f.style.left = SEAT[toIdx].x + 'px'; f.style.top = SEAT[toIdx].y + 'px';
+  setTimeout(() => { f.style.opacity = '0'; }, 550);
+  setTimeout(() => f.remove(), 1200);
+}
+
+// ---------------------------------------------------------------- game flow
+async function runTable(tok) {
+  await wait(500);
+  while (alive(tok)) {
+    const P = G.players;
+    if (G.mode === 'cash') {
+      if (P[0].chips <= 0) {
+        const c = CASH[G.idx];
+        const v = await modal('Busted!', 'You ran out of chips at this table.\nBuy back in and keep playing?', [
+          { label: 'REBUY', sub: fmt(c.buy), cls: 'btn-gold', value: 'rebuy', disabled: S.bankroll < c.buy },
+          { label: 'LOBBY', cls: 'btn-slate', value: 'lobby' }]);
+        if (!alive(tok)) return;
+        if (v === 'rebuy' && S.bankroll >= c.buy) { S.bankroll -= c.buy; P[0].chips = c.buy; S.seated = c.buy; save(); renderAll(); }
+        else { leaveTable(); return; }
+      }
+      for (let i = 1; i < 5; i++) if (P[i].chips <= 0) {
+        P[i] = null; P[i] = newBot(botStack());
+        els.seats[i].dataset.key = ''; renderSeat(i); say(i, 'Hi all! 👋');
+      }
+    } else {
+      if (P.filter(p => !p.out).length === 1) { await sngFinish(1, tok); return; }
+    }
+    await playHand(tok);
+    if (!alive(tok)) return;
+    if (G.mode === 'cash') { S.seated = P[0].chips; save(); }
+    else {
+      const busted = P.filter(p => !p.out && p.chips <= 0);
+      if (busted.length) {
+        const remaining = P.filter(p => !p.out && p.chips > 0).length;
+        busted.sort((a, b) => b.startChips - a.startChips).forEach((p, k) => { p.out = true; p.rank = remaining + 1 + k; });
+        renderAll();
+        if (P[0].out) { await sleep(1200); await sngFinish(P[0].rank, tok); return; }
+      }
+    }
+    await sleep(1600);
+  }
+}
+
+async function sngFinish(rank, tok) {
+  if (!alive(tok)) return;
+  const buy = SNG[G.idx].buy, prize = rank === 1 ? buy * 3.5 : rank === 2 ? buy * 1.5 : 0;
+  S.bankroll += prize; if (rank === 1) S.stats.sngWins++; save();
+  rank <= 2 ? sfx.win() : sfx.lose();
+  const title = rank === 1 ? '🏆 You Won!' : 'You Ranked ' + ord(rank);
+  const body = rank === 1 ? `Champion of the table!\nYou take home ${fmt(prize)}.`
+    : rank === 2 ? `So close! Runner-up prize:\n${fmt(prize)}.` : 'Nice try!\nBetter luck next time.\nGive it another go?';
+  const idx = G.idx;
+  const v = await modal(title, body, [
+    { label: 'PLAY AGAIN', sub: 'BUY-IN ' + fmt(buy), cls: 'btn-gold', value: 'again', disabled: S.bankroll < buy },
+    { label: 'LOBBY', cls: 'btn-slate', value: 'lobby' }]);
+  leaveTable();
+  if (v === 'again') startGame('sng', idx);
+}
+
+const nextIdx = (from, pred) => { for (let k = 1; k <= 5; k++) { const j = (from + k) % 5; if (pred(j)) return j; } return -1; };
+
+async function playHand(tok) {
+  const P = G.players;
+  G.handNo++;
+  if (G.mode === 'sng') {
+    const lv = Math.min(Math.floor((G.handNo - 1) / SNG_HANDS_PER_LEVEL), SNG_BLINDS.length - 1);
+    if (G.handNo > 1 && (G.handNo - 1) % SNG_HANDS_PER_LEVEL === 0 && lv < SNG_BLINDS.length) $('#msg').textContent = 'Blinds up!';
+    [G.sb, G.bb] = SNG_BLINDS[lv];
+  }
+  P.forEach(p => {
+    p.sitOut = !!p.out || p.chips <= 0;
+    Object.assign(p, { cards: [], folded: p.sitOut, allIn: false, bet: 0, total: 0, acted: false, showCards: false, startChips: p.chips });
+  });
+  G.board = []; G.turn = -1;
+  els.slots.forEach(s => s.innerHTML = '');
+  clearTags(false); $('#handName').textContent = ''; setMeter(null);
+  setTimeout(() => { if (alive(tok) && $('#msg').textContent === 'Blinds up!') $('#msg').textContent = ''; }, 1500);
+  if ($('#msg').textContent !== 'Blinds up!') $('#msg').textContent = '';
+  const live = i => !P[i].sitOut;
+  G.dealer = nextIdx(G.dealer, live);
+  const n = P.filter(p => !p.sitOut).length;
+  const sbI = n === 2 ? G.dealer : nextIdx(G.dealer, live), bbI = nextIdx(sbI, live);
+  const blind = (i, amt) => { const p = P[i], a = Math.min(amt, p.chips); p.chips -= a; p.bet = a; p.total = a; if (!p.chips) p.allIn = true; };
+  blind(sbI, G.sb); blind(bbI, G.bb);
+  G.currentBet = G.bb; G.minRaise = G.bb;
+  renderAll(); sfx.chip();
+  await sleep(400);
+
+  // shuffle and deal
+  const deck = []; for (let c = 0; c < 52; c++) deck.push(c);
+  for (let i = 51; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [deck[i], deck[j]] = [deck[j], deck[i]]; }
+  for (let r = 0; r < 2; r++) {
+    for (let k = 0, i = sbI; k < n; k++, i = nextIdx(i, live)) {
+      if (!alive(tok)) return;
+      P[i].cards.push(deck.pop()); renderSeat(i); sfx.card(); await sleep(130);
+    }
+  }
+  updateHumanInfo();
+
+  await bettingRound(nextIdx(bbI, live), tok);
+  for (const count of [3, 1, 1]) {
+    if (!alive(tok)) return;
+    if (P.filter(p => !p.folded).length <= 1) break;
+    await collectBets();
+    const canAct = i => !P[i].folded && !P[i].allIn;
+    const actors = P.filter((p, i) => canAct(i)).length;
+    if (actors <= 1 && !G.revealed) { // everyone is all-in: show the hands and run the board out
+      G.revealed = true; P.forEach(p => { if (!p.folded) p.showCards = true; }); renderAll(); sfx.card();
+      await sleep(900);
+    }
+    deck.pop();
+    for (let k = 0; k < count; k++) G.board.push(deck.pop());
+    renderBoard(); sfx.card(); await sleep(500);
+    updateHumanInfo();
+    if (actors >= 2) {
+      P.forEach(p => { p.acted = false; });
+      G.currentBet = 0; G.minRaise = G.bb;
+      await bettingRound(nextIdx(G.dealer, canAct), tok);
+    } else await sleep(900);
+  }
+  if (!alive(tok)) return;
+  await collectBets();
+  await showdown(tok);
+  G.revealed = false;
+}
+
+async function bettingRound(start, tok) {
+  const P = G.players;
+  const needs = p => !p.folded && !p.allIn && (!p.acted || p.bet < G.currentBet);
+  let i = start;
+  for (let guard = 0; guard < 300; guard++) {
+    if (!alive(tok)) return;
+    if (P.filter(p => !p.folded).length <= 1) return;
+    if (!P.some(needs)) return;
+    const actors = P.filter(p => !p.folded && !p.allIn);
+    if (actors.length === 1 && actors[0].bet >= G.currentBet) return;
+    const p = P[i];
+    if (needs(p)) {
+      G.turn = i; renderSeat(i);
+      const a = p.isHuman ? await humanAction(p) : await botAction(p);
+      if (!alive(tok)) return;
+      G.turn = -1;
+      applyAction(i, a);
+      renderAll();
+    }
+    i = (i + 1) % 5;
+  }
+}
+
+function applyAction(i, a) {
+  const P = G.players, p = P[i], toCall = G.currentBet - p.bet;
+  const put = amt => { p.chips -= amt; p.bet += amt; p.total += amt; if (p.chips === 0) p.allIn = true; };
+  if (a.type === 'fold') {
+    p.folded = true; setTag(i, 'FOLD', 't-fold'); sfx.fold();
+    if (i === 0) { $('#handName').textContent = ''; setMeter(null); }
+  } else if (a.type === 'check') {
+    setTag(i, 'CHECK', 't-check'); sfx.check();
+  } else if (a.type === 'call' || (a.type === 'raise' && Math.min(a.to, p.chips + p.bet) <= G.currentBet)) {
+    put(Math.min(toCall, p.chips)); setTag(i, p.allIn ? 'ALL-IN' : 'CALL', p.allIn ? 't-allin' : 't-call'); sfx.chip();
+  } else {
+    const to = Math.min(a.to, p.chips + p.bet), inc = to - G.currentBet, wasBet = G.currentBet === 0;
+    if (inc >= G.minRaise) { G.minRaise = inc; P.forEach(q => { if (q !== p) q.acted = false; }); }
+    G.currentBet = to; put(to - p.bet);
+    setTag(i, p.allIn ? 'ALL-IN' : (wasBet ? 'BET ' : 'RAISE ') + short(to), p.allIn ? 't-allin' : 't-raise');
+    sfx.chip(); setTimeout(sfx.chip, 90);
+    if (!p.isHuman && p.allIn) botChat(i, ['All in! 😈', 'Let\'s go!', 'Ship it!'], .4);
+  }
+  p.acted = true;
+}
+
+async function collectBets() {
+  const P = G.players;
+  if (P.some(p => p.bet > 0)) {
+    els.bets.forEach((b, i) => { if (P[i].bet > 0) { b.style.left = POT_XY.x + 'px'; b.style.top = POT_XY.y + 'px'; b.style.opacity = '0'; } });
+    sfx.chip(); await wait(430);
+    els.bets.forEach((b, i) => {
+      b.style.transition = 'none'; b.classList.add('hidden');
+      b.style.left = BET[i].x + 'px'; b.style.top = BET[i].y + 'px'; b.style.opacity = '';
+      b.offsetWidth; b.style.transition = '';
+    });
+  }
+  P.forEach(p => { p.bet = 0; });
+  if (G) { clearTags(true); renderAll(); }
+}
+
+async function showdown(tok) {
+  const P = G.players, live = P.filter(p => !p.folded), h = P[0];
+  const total = P.reduce((a, p) => a + p.total, 0);
+  const dealt = h.cards.length > 0;
+  let humanWon = 0;
+  if (live.length === 1) {
+    const w = live[0], wi = P.indexOf(w);
+    w.chips += total; flyChips(wi, total); sfx.chip();
+    setTag(wi, 'WIN ' + short(total), 't-win');
+    $('#msg').textContent = `${w.isHuman ? 'You win' : w.name + ' wins'} ${fmt(total)}`;
+    if (w.isHuman) { humanWon = total; sfx.win(); }
+    renderAll(); recordHand(dealt, humanWon, null);
+    return;
+  }
+  live.forEach(p => { p.showCards = true; p.hand = bestHand(p.cards.concat(G.board)); });
+  renderAll(); sfx.card();
+  await sleep(700);
+  if (!alive(tok)) return;
+
+  // main pot and side pots
+  const levels = [...new Set(P.map(p => p.total).filter(t => t > 0))].sort((a, b) => a - b);
+  const pots = []; let prev = 0;
+  for (const L of levels) {
+    const amt = P.reduce((a, p) => a + Math.min(p.total, L) - Math.min(p.total, prev), 0);
+    const elig = live.filter(p => p.total >= L);
+    if (!elig.length) { if (pots.length) pots[pots.length - 1].amt += amt; else pots.push({ amt, elig: live }); }
+    else if (pots.length && pots[pots.length - 1].elig.length === elig.length) pots[pots.length - 1].amt += amt;
+    else pots.push({ amt, elig });
+    prev = L;
+  }
+  const won = new Map();
+  for (const pot of pots) {
+    const best = Math.max(...pot.elig.map(p => p.hand.score));
+    const ws = pot.elig.filter(p => p.hand.score === best);
+    const share = Math.floor(pot.amt / ws.length);
+    ws.forEach((w, k) => won.set(w, (won.get(w) || 0) + share + (k === 0 ? pot.amt - share * ws.length : 0)));
+  }
+  live.forEach(p => setTag(P.indexOf(p), p.hand.name, 't-hand'));
+  await sleep(600);
+  if (!alive(tok)) return;
+
+  // highlight the best hand of the main pot winner
+  const top = [...won.keys()].sort((a, b) => b.hand.score - a.hand.score)[0];
+  const winCards = new Set(top.hand.cards);
+  document.querySelectorAll('#board .card, #seats .card').forEach(el => {
+    if (el.dataset.c == null) return;
+    el.classList.toggle('win', winCards.has(+el.dataset.c));
+    el.classList.toggle('dim', !winCards.has(+el.dataset.c));
+  });
+  const names = [];
+  won.forEach((amt, w) => {
+    const wi = P.indexOf(w); w.chips += amt; flyChips(wi, amt);
+    setTag(wi, 'WIN ' + short(amt), 't-win');
+    names.push(w.isHuman ? 'You' : w.name);
+    if (w.isHuman) humanWon = amt;
+  });
+  $('#msg').textContent = `${names.join(' & ')} ${names.length > 1 || names[0] === 'You' ? 'win' : 'wins'} with ${top.hand.name}`;
+  if (humanWon) { sfx.win(); if (Math.random() < .5) { const losers = live.filter(p => !won.has(p)).map(p => P.indexOf(p)); if (losers.length) botChat(losers[0], ['Nice hand', 'No way!', 'Wow!'], 1); } }
+  else if (live.includes(h)) { sfx.lose(); const wi = P.indexOf(top); if (wi > 0) botChat(wi, ['😎', 'Gotcha!', 'Thanks!'], .45); }
+  renderAll();
+  recordHand(dealt, humanWon, live.includes(h) ? h.hand : null);
+  await sleep(1400);
+}
+
+function recordHand(dealt, humanWon, hand) {
+  if (!dealt) return;
+  const st = S.stats; st.hands++;
+  if (humanWon > 0) { st.wins++; st.biggest = Math.max(st.biggest, humanWon); }
+  if (hand && G.board.length === 5 && hand.score > st.bestScore) {
+    st.bestScore = hand.score; st.bestCards = hand.cards; st.bestName = hand.name;
+  }
+  save();
+}
+
+// ---------------------------------------------------------------- players' decisions
+function humanAction(p) {
+  return new Promise(res => {
+    const P = G.players, toCall = G.currentBet - p.bet, callAmt = Math.min(toCall, p.chips);
+    const others = P.some(q => q !== p && !q.folded && !q.allIn);
+    const maxTo = p.chips + p.bet, canRaise = p.chips > toCall && others;
+    const minTo = Math.min(G.currentBet + G.minRaise, maxTo);
+    const potAll = P.reduce((a, q) => a + q.total, 0);
+    const slider = $('#slider');
+    slider.min = minTo; slider.max = maxTo; slider.step = 1; slider.value = minTo;
+    const setTo = v => {
+      v = Math.max(minTo, Math.min(maxTo, v));
+      if (v < maxTo) v = Math.max(minTo, Math.round(v / G.sb) * G.sb);
+      slider.value = v;
+      $('#raiseBtn').textContent = v >= maxTo ? 'ALL-IN ' + short(maxTo) : (G.currentBet === 0 ? 'BET ' : 'RAISE TO ') + short(v);
+    };
+    slider.oninput = () => setTo(+slider.value);
+    document.querySelectorAll('.preset').forEach(b => {
+      b.disabled = !canRaise;
+      b.onclick = () => {
+        sfx.click(); const k = b.dataset.p;
+        setTo(k === 'min' ? minTo : k === 'all' ? maxTo : p.bet + toCall + Math.round(+k * (potAll + toCall)));
+      };
+    });
+    slider.disabled = !canRaise; $('#raiseBtn').disabled = !canRaise;
+    setTo(minTo);
+    $('#callBtn').textContent = toCall === 0 ? 'CHECK' : (callAmt >= p.chips ? 'ALL-IN ' : 'CALL ') + short(callAmt);
+    const done = a => { $('#actions').classList.add('hidden'); G.humanAct = null; res(a); };
+    $('#foldBtn').onclick = () => done({ type: 'fold' });
+    $('#callBtn').onclick = () => done({ type: toCall === 0 ? 'check' : 'call' });
+    $('#raiseBtn').onclick = () => done({ type: 'raise', to: +slider.value });
+    G.humanAct = { fold: () => $('#foldBtn').click(), call: () => $('#callBtn').click(), raise: () => canRaise && $('#raiseBtn').click() };
+    $('#actions').classList.remove('hidden');
+    sfx.turn();
+  });
+}
+
+async function botAction(p) {
+  await sleep(550 + Math.random() * 750);
+  return botDecide(p);
+}
+
+function botDecide(p) {
+  const P = G.players, opp = P.filter(q => q !== p && !q.folded).length;
+  const toCall = G.currentBet - p.bet, potAll = P.reduce((a, q) => a + q.total, 0);
+  const potOdds = toCall > 0 ? toCall / (potAll + toCall) : 0;
+  let eq = equity(p.cards, G.board, opp, 200);
+  eq += (Math.random() - .5) * .08 + (p.loose - 1) * .06;
+  const thr = b => b / (1 + .45 * (opp - 1));
+  const others = P.some(q => q !== p && !q.folded && !q.allIn);
+  const maxTo = p.chips + p.bet, r = Math.random(), A = p.aggr;
+  const call = () => toCall > 0 ? { type: 'call' } : { type: 'check' };
+  const fold = () => toCall > 0 ? { type: 'fold' } : { type: 'check' };
+  const raise = frac => {
+    if (!others) return call();
+    let to = G.currentBet + Math.max(G.minRaise, Math.round((potAll + toCall) * frac / G.sb) * G.sb);
+    if (to >= maxTo * .75) to = maxTo;
+    return { type: 'raise', to: Math.min(to, maxTo) };
+  };
+  if (eq >= thr(.85) && others && r < .25 * A) return { type: 'raise', to: maxTo };
+  if (eq >= thr(.72)) return r < .7 * A ? raise(.6 + Math.random() * .5) : call();
+  if (eq >= thr(.56)) {
+    if (toCall === 0) return r < .45 * A ? raise(.5) : call();
+    if (eq > potOdds + .05 || toCall <= G.bb * 2) return r < .15 * A ? raise(.7) : call();
+    return fold();
+  }
+  if (eq >= thr(.42) || eq > potOdds + .04) {
+    if (toCall === 0) return r < .12 * A ? raise(.5) : call();
+    return eq > potOdds ? call() : fold();
+  }
+  if (toCall === 0) return r < .07 * A ? raise(.6) : call();
+  if (toCall <= G.bb && G.board.length === 0 && r < .35 * p.loose) return call();
+  return fold();
+}
+
+// ---------------------------------------------------------------- table controls
+$('#menuBtn').onclick = () => { sfx.click(); $('#menu').classList.toggle('hidden'); $('#chat').classList.add('hidden'); };
+$('#chatBtn').onclick = () => { sfx.click(); $('#chat').classList.toggle('hidden'); $('#menu').classList.add('hidden'); };
+$('#mLeave').onclick = async () => {
+  $('#menu').classList.add('hidden');
+  if (G && G.mode === 'sng') {
+    const v = await modal('Leave Tournament?', 'You will forfeit your buy-in.', [
+      { label: 'STAY', cls: 'btn-gold', value: 'stay' }, { label: 'LEAVE', cls: 'btn-slate', value: 'leave' }]);
+    if (v !== 'leave') return;
+  }
+  leaveTable();
+};
+$('#mSound').onclick = () => { S.muted = !S.muted; save(); renderMenu(); sfx.click(); };
+$('#mMeter').onclick = () => { S.meter = !S.meter; save(); renderMenu(); $('#meter').classList.toggle('hidden', !S.meter); if (G) updateHumanInfo(); };
+$('#mSpeed').onclick = () => { S.fast = !S.fast; save(); renderMenu(); };
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (k === 'm') { S.muted = !S.muted; save(); if (G) renderMenu(); else renderLobby(); return; }
+  if (!G || !G.humanAct || !$('#modal').classList.contains('hidden')) return;
+  if (k === 'f') G.humanAct.fold();
+  else if (k === 'c' || k === ' ') { e.preventDefault(); G.humanAct.call(); }
+  else if (k === 'r') G.humanAct.raise();
+});
+
+// ---------------------------------------------------------------- scale to window
+function fit() {
+  const s = Math.min(innerWidth / 1280, innerHeight / 720);
+  $('#stage').style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+addEventListener('resize', fit); fit();
+renderLobby();
+</script>
+</body>
+</html>
