@@ -230,6 +230,16 @@
 
   /* ---------- modal ---------- */
   #modal { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 50; }
+  #queue { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: grid; place-items: center; z-index: 40; }
+  #queue .modal-box { width: 760px; }
+  #queue h2 { font-size: 40px; }
+  .q-seats { display: flex; justify-content: center; gap: 18px; margin: 4px 0 18px; }
+  .q-seat { width: 110px; }
+  .q-seat b { display: block; font-size: 58px; line-height: 1.1; }
+  .q-seat b.on { animation: pop .3s ease-out; }
+  .q-seat span { display: block; font-size: 15px; color: #c7cbd4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .q-seat.me span { color: #4aa8ff; font-weight: 800; }
+  #queue p.q-note { font-size: 17px; color: #c7cbd4; margin-bottom: 22px; }
   .modal-box { width: 640px; background: linear-gradient(#3a3e4b, #262932); border-radius: 22px; padding: 36px 40px 34px;
     text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.15); animation: pop .25s ease-out; }
   .modal-box h2 { margin: 0 0 6px; font-size: 52px; color: #e6e9f0; text-shadow: 0 3px 0 rgba(0,0,0,.45); }
@@ -284,7 +294,7 @@
         <div class="prize-label">1st PRIZE</div>
         <div class="prize" id="sngP1"></div>
         <div class="kv">2nd PRIZE <b id="sngP2"></b></div>
-        <div class="faces">😐😐😐😐😐</div>
+        <div class="faces" id="sngFaces">😐😐😐😐😐</div>
         <div class="lock" id="sngLock"></div>
         <button class="btn btn-gold big" id="sngPlay">BUY-IN</button>
       </div>
@@ -351,6 +361,16 @@
     </div>
   </div>
 
+  <div id="queue" class="hidden"><div class="modal-box">
+    <div class="panel-sub">SIT-N-GO · <span id="qStage"></span></div>
+    <h2 id="qTitle">Waiting for players</h2><hr>
+    <div class="q-seats" id="qSeats"></div>
+    <p class="q-note" id="qNote"></p>
+    <div class="modal-btns">
+      <button class="btn btn-gold" id="qBots">PLAY WITH BOTS NOW</button>
+      <button class="btn btn-slate" id="qCancel">CANCEL</button>
+    </div>
+  </div></div>
   <div id="modal" class="hidden"><div class="modal-box"><h2 id="mTitle"></h2><hr><p id="mBody"></p><div class="modal-btns" id="mBtns"></div></div></div>
 </div>
 
@@ -596,6 +616,7 @@ function renderLobby() {
     $('#bestName').textContent = '· ' + st.bestName.toUpperCase();
     st.bestCards.slice().sort((a, b) => rankOf(b) - rankOf(a)).forEach(c => bc.appendChild(cardEl(c)));
   } else { $('#bestName').textContent = ''; bc.textContent = 'Win a showdown to record one!'; }
+  renderFaces();
   renderFree();
 }
 function freeReady() { return Date.now() >= S.freeAt || S.bankroll < CASH[0].buy; }
@@ -625,7 +646,7 @@ $('#myName').onclick = () => {
   if (n && n.trim()) { S.name = n.trim().slice(0, 12); save(); renderLobby(); }
 };
 $('#cashPlay').onclick = () => startCash(S.cashSel);
-$('#sngPlay').onclick = () => startGame('sng', S.sngSel);
+$('#sngPlay').onclick = () => startSng(S.sngSel);
 
 // ---------------------------------------------------------------- modal
 function modal(title, body, buttons) {
@@ -682,7 +703,8 @@ function botStack() { const c = CASH[G.idx]; return Math.round(c.buy * (.5 + Mat
 function leaveTable() {
   if (!G) return;
   if (G.online) {
-    const ws = G.ws; S.bankroll += G.myChips; S.seated = 0;
+    const ws = G.ws;
+    if (G.mode === 'cash') { S.bankroll += G.myChips; S.seated = 0; }
     try { ws.send(JSON.stringify({ t: 'leave' })); ws.close(); } catch (e) {}
   } else if (G.mode === 'cash') { S.bankroll += G.players[0].chips; S.seated = 0; }
   G = null; save();
@@ -707,7 +729,7 @@ async function animateCollect() {
 
 // ---------------------------------------------------------------- online cash tables
 // The server runs the table; this page draws each state it sends and passes on your moves.
-const TURN_TIME = 5000;
+const TURN_TIME = 10000;
 function wsUrl() {
   if (SERVER_URL) return SERVER_URL.trim().replace(/^http/, 'ws').replace(/\/+$/, '');
   if (/^https?:$/.test(location.protocol)) return location.origin.replace(/^http/, 'ws');
@@ -730,8 +752,14 @@ function renderNet() {
   el.innerHTML = !netChecked ? '<i></i>CONNECTING…'
     : netInfo ? `<i></i>ONLINE · ${netInfo.players} ${netInfo.players === 1 ? 'PLAYER' : 'PLAYERS'} AT THE TABLES`
     : '<i></i>OFFLINE · PLAYING VS BOTS';
+  renderFaces();
 }
-setInterval(() => { if (!G) checkServer(); }, 30000);
+setInterval(() => { if (!G && !Q) checkServer(); }, 5000);
+// One 😀 for each real player waiting for this stage's Sit-N-Go.
+function renderFaces() {
+  const n = netInfo && netInfo.sng ? netInfo.sng[S.sngSel] || 0 : 0;
+  $('#sngFaces').textContent = '😀'.repeat(n) + '😐'.repeat(5 - n);
+}
 
 async function startCash(idx) {
   if (S.bankroll < CASH[idx].buy) return;
@@ -768,12 +796,14 @@ function joinOnline(idx) {
   });
 }
 
-function startOnline(ws, idx) {
-  const c = CASH[idx];
-  S.bankroll -= c.buy; S.seated = c.buy; save();
+function startOnline(ws, idx, mode = 'cash') {
+  const cash = mode === 'cash', buy = cash ? CASH[idx].buy : SNG[idx].buy;
+  S.bankroll -= buy; if (cash) S.seated = buy;
+  save();
   const blank = () => ({ name: '', avatar: '', chips: 0, cards: [], bet: 0, total: 0 });
-  G = { mode: 'cash', online: true, idx, ws, queue: [], pumping: false, token: Math.random(), players: [0, 1, 2, 3, 4].map(blank),
-    dealer: 0, handNo: 0, board: [], turn: -1, sb: c.sb, bb: c.bb, me: 0, myChips: c.buy, shownTurn: -1, infoKey: '' };
+  G = { mode, online: true, idx, ws, queue: [], pumping: false, token: Math.random(), players: [0, 1, 2, 3, 4].map(blank),
+    dealer: 0, handNo: 0, board: [], turn: -1, sb: cash ? CASH[idx].sb : SNG_BLINDS[0][0], bb: cash ? CASH[idx].bb : SNG_BLINDS[0][1],
+    me: 0, myChips: buy, shownTurn: -1, infoKey: '' };
   $('#lobby').classList.add('hidden'); $('#table').classList.remove('hidden');
   buildTable();
 }
@@ -792,7 +822,7 @@ async function handleEvent(ev, s) {
   const fast = G.queue.length > 15; // catch up quickly after the tab was in the background
   const vis = i => (i - G.me + 5) % 5;
   if (ev.kind === 'collect') { if (!fast) await animateCollect(); return; }
-  if (ev.kind === 'hand') { els.slots.forEach(sl => { sl.innerHTML = ''; }); G.handNo++; }
+  if (ev.kind === 'hand') els.slots.forEach(sl => { sl.innerHTML = ''; });
   if (!fast) {
     if (ev.kind === 'deal' || ev.kind === 'board' || ev.kind === 'reveal') sfx.card();
     if (ev.kind === 'action') (ev.type === 'fold' ? sfx.fold : ev.type === 'check' ? sfx.check : sfx.chip)();
@@ -814,9 +844,15 @@ async function handleEvent(ev, s) {
     }
     case 'chat': case 'seat': if (ev.text) say(vis(ev.seat), ev.text); break;
     case 'handEnd':
+      if (G.mode !== 'cash') break;
       S.seated = G.myChips; save();
       if (me && me.chips <= 0) bustOnline();
       break;
+    case 'sngEnd': {
+      const mine = ev.ranks.find(r => r.seat === s.you);
+      if (mine) { hideActions(); sngFinish(mine.rank, G.token); }
+      break;
+    }
   }
 }
 
@@ -826,11 +862,11 @@ function applyState(s) {
   s.seats.forEach((q, i) => {
     G.players[vis(i)] = { name: q.name, avatar: q.avatar, chips: q.chips, bet: q.bet, total: q.total, folded: q.folded,
       allIn: q.allIn, sitOut: q.sitOut, cards: q.cards, isHuman: i === s.you, showCards: q.cards.some(c => c != null),
-      real: !q.isBot && i !== s.you, bot: q.isBot, tag: q.tag };
+      real: !q.isBot && i !== s.you, bot: q.isBot, tag: q.tag, out: q.out, rank: q.rank };
   });
   G.dealer = vis(s.dealer); G.turn = s.turn >= 0 ? vis(s.turn) : -1;
   G.turnEnd = s.turnLeft ? performance.now() + s.turnLeft : 0;
-  G.sb = s.sb; G.bb = s.bb;
+  G.sb = s.sb; G.bb = s.bb; G.handNo = s.handNo;
   if (s.board.length < G.board.length) els.slots.forEach(sl => { sl.innerHTML = ''; });
   G.board = s.board.slice();
   const me = s.you >= 0 ? s.seats[s.you] : null;
@@ -840,7 +876,7 @@ function applyState(s) {
     const t = p.tag ? p.tag.text + '|' + p.tag.cls : '';
     if (els.seats[i].dataset.tag !== t) { els.seats[i].dataset.tag = t; setTag(i, p.tag ? p.tag.text : '', p.tag ? p.tag.cls : ''); }
   });
-  $('#msg').textContent = s.msg || (me ? '' : 'Taking a seat… you\'ll be dealt in next hand');
+  $('#msg').textContent = s.msg || (me || G.mode !== 'cash' ? '' : 'Taking a seat… you\'ll be dealt in next hand');
   const win = new Set(s.winCards || []);
   document.querySelectorAll('#board .card, #seats .card').forEach(el => {
     if (el.dataset.c == null) return;
@@ -856,7 +892,9 @@ function applyState(s) {
   } else if (!s.options) hideActions();
   $('#awayBtn').classList.toggle('hidden', !(me && me.away));
   const humans = s.seats.filter(q => !q.isBot).length;
-  $('#hudMode').innerHTML = `CASH GAME · STAGE ${G.idx + 1}<small>🟢 Online · ${humans} ${humans === 1 ? 'player' : 'players'} here</small>`;
+  $('#hudMode').innerHTML = G.mode === 'cash'
+    ? `CASH GAME · STAGE ${G.idx + 1}<small>🟢 Online · ${humans} ${humans === 1 ? 'player' : 'players'} here</small>`
+    : `SIT-N-GO · STAGE ${G.idx + 1}<small>🟢 Live tournament · 1st ${short(SNG[G.idx].buy * 3.5)} · 2nd ${short(SNG[G.idx].buy * 1.5)}</small>`;
 }
 
 function bustOnline() {
@@ -875,10 +913,63 @@ function bustOnline() {
   });
 }
 
+// ---------------------------------------------------------------- Sit-N-Go waiting room
+// Buying in waits for five real players; anyone can switch to a tournament against bots instead.
+let Q = null;
+function startSng(idx) {
+  if (S.bankroll < SNG[idx].buy) return;
+  ac(); goLandscape();
+  if (!wsUrl() || !netInfo) { startGame('sng', idx); return; }
+  let ws;
+  try { ws = new WebSocket(wsUrl()); } catch (e) { startGame('sng', idx); return; }
+  Q = { ws, idx, players: null };
+  ws.onopen = () => ws.send(JSON.stringify({ t: 'sngJoin', stage: idx, name: S.name, avatar: S.avatar }));
+  ws.onmessage = e => {
+    let m; try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.t === 'queue' && Q && Q.ws === ws) { Q.players = m.players; renderQueue(); }
+    else if (m.t === 'joined' && m.mode === 'sng' && Q && Q.ws === ws) { Q = null; hideQueue(); startOnline(ws, idx, 'sng'); }
+    else if (G && G.ws === ws) { G.queue.push(m); pump(); }
+  };
+  ws.onclose = () => {
+    if (Q && Q.ws === ws) { Q = null; hideQueue(); modal('Connection Lost', 'Couldn\'t reach the game server.\nTry again, or play against bots.', [{ label: 'OK', cls: 'btn-gold' }]); }
+    else if (G && G.ws === ws) connectionLost();
+  };
+  renderQueue();
+  $('#queue').classList.remove('hidden');
+}
+function renderQueue() {
+  const { idx, players } = Q, buy = SNG[idx].buy, n = players ? players.length : 0;
+  $('#qStage').textContent = 'STAGE ' + (idx + 1);
+  $('#qTitle').textContent = players ? `Waiting for players · ${n}/5` : 'Connecting…';
+  const box = $('#qSeats'), before = box.querySelectorAll('b.happy').length;
+  box.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const pl = players && players[i], d = document.createElement('div');
+    d.className = 'q-seat' + (pl && pl.name === S.name && pl.avatar === S.avatar ? ' me' : '');
+    d.innerHTML = '<b></b><span></span>';
+    d.firstChild.textContent = pl ? '😀' : '😐';
+    if (pl) d.firstChild.classList.add('happy', ...(i >= before ? ['on'] : []));
+    d.lastChild.textContent = pl ? pl.name : 'Waiting…';
+    box.appendChild(d);
+  }
+  if (n > before && before > 0) sfx.chip();
+  $('#qNote').textContent = `The tournament starts as soon as 5 real players have joined. Your ${fmt(buy)} buy-in is only taken when it starts.`;
+}
+function hideQueue() { $('#queue').classList.add('hidden'); renderLobby(); }
+function closeQueue() {
+  if (!Q) return;
+  const ws = Q.ws; Q = null;
+  try { ws.send(JSON.stringify({ t: 'sngLeave' })); ws.close(); } catch (e) {}
+  hideQueue(); checkServer();
+}
+$('#qCancel').onclick = () => { sfx.click(); closeQueue(); };
+$('#qBots').onclick = () => { sfx.click(); const idx = Q.idx; closeQueue(); startGame('sng', idx); };
+
 function connectionLost() {
   const g = G;
   hideActions();
-  modal('Connection Lost', 'The connection to the game server dropped.\nYour chips are back in your bankroll.',
+  modal('Connection Lost', G.mode === 'cash' ? 'The connection to the game server dropped.\nYour chips are back in your bankroll.'
+    : 'The connection to the game server dropped,\nso you\'ve left the tournament.',
     [{ label: 'LOBBY', cls: 'btn-gold', value: 'lobby' }]).then(() => { if (G === g) leaveTable(); });
 }
 
@@ -962,7 +1053,7 @@ function renderSeat(i) {
   s.classList.toggle('out', !!(p.out || p.sitOut));
   s.classList.toggle('real', !!p.real);
   const bot = G.online ? p.bot : !p.isHuman, kind = s.querySelector('.kind');
-  kind.textContent = p.name ? (bot ? '🤖' : '👤') : '';
+  kind.textContent = p.name ? (bot ? '💻' : '👤') : '';
   kind.classList.toggle('human', !bot);
   kind.title = bot ? 'Computer player' : 'Real player';
   const faceUp = p.isHuman || p.showCards;
@@ -1092,12 +1183,12 @@ async function sngFinish(rank, tok) {
   const title = rank === 1 ? '🏆 You Won!' : 'You Ranked ' + ord(rank);
   const body = rank === 1 ? `Champion of the table!\nYou take home ${fmt(prize)}.`
     : rank === 2 ? `So close! Runner-up prize:\n${fmt(prize)}.` : 'Nice try!\nBetter luck next time.\nGive it another go?';
-  const idx = G.idx;
+  const idx = G.idx, online = G.online;
   const v = await modal(title, body, [
     { label: 'PLAY AGAIN', sub: 'BUY-IN ' + fmt(buy), cls: 'btn-gold', value: 'again', disabled: S.bankroll < buy },
     { label: 'LOBBY', cls: 'btn-slate', value: 'lobby' }]);
   leaveTable();
-  if (v === 'again') startGame('sng', idx);
+  if (v === 'again') online ? startSng(idx) : startGame('sng', idx);
 }
 
 const nextIdx = (from, pred) => { for (let k = 1; k <= 5; k++) { const j = (from + k) % 5; if (pred(j)) return j; } return -1; };

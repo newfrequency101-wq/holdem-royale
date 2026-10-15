@@ -15,7 +15,7 @@ For multiplayer cash tables, run the game server in `server/` (see [Multiplayer]
 | Mode | How it works |
 | --- | --- |
 | Cash Game | Pick a stage (blinds from $10/$20 up to the $5K/$10K high-roller table), buy in, and leave whenever you like. Your chips go back to your bankroll when you leave. Busted opponents are replaced by new players. When the multiplayer server is online, everyone who picks the same stage shares a table, and real players take over the bots' seats. |
-| Sit-N-Go | Five players start with 1,500 tournament chips each. The blinds go up every 5 hands. Last player standing wins 3.5× the buy-in, and 2nd place wins 1.5×. |
+| Sit-N-Go | Five players start with 1,500 tournament chips each. The blinds go up every 5 hands. Last player standing wins 3.5× the buy-in, and 2nd place wins 1.5×. When the multiplayer server is online, buying in opens a waiting room: each real player waiting turns a 😐 into a 😀, and a live tournament starts when 5 real players have joined. Anyone waiting can switch to a tournament against bots instead. |
 
 You start with $10,000. You can collect $2,000 in free chips every 3 hours, or at any time when you can't afford the smallest table.
 
@@ -42,15 +42,16 @@ Your bankroll, stats and settings are saved in the browser's local storage.
 
 ## Multiplayer
 
-The `server/` folder contains a small Node.js server that runs shared cash tables:
+The `server/` folder contains a small Node.js server that runs shared cash tables and live Sit-N-Go tournaments:
 
 - Every table has 5 seats. When a real player sits down, they take a bot's seat (from the next hand if one is in progress), and when they leave, a bot takes the seat back. When a table is full of real players, the next player gets a new table.
 - The server shuffles and deals, so a player's browser never receives anyone else's hole cards until a showdown.
-- Real players have 5 seconds to act, with a countdown on their seat. When time runs out they check, or fold if someone has bet. After three timeouts in a row they sit out until they click **I'm back**.
-- Every player's picture has a badge: 🤖 for computer players and 👤 for real players.
+- Real players have 10 seconds to act, with a countdown on their seat. When time runs out they check, or fold if someone has bet. After three timeouts in a row they sit out until they click **I'm back**.
+- Every player's picture has a badge: 💻 for computer players and 👤 for real players.
 - Notices at the top of the table say when players join, wait for the next hand, sit down, leave or sit out.
 - Bankrolls stay in each player's own browser. The server only tracks the chips on the table.
-- If the server can't be reached, cash games fall back to offline play against bots. Sit-N-Go tournaments are always offline.
+- Sit-N-Go players wait in a queue for their stage. When five real players are waiting, the server starts a tournament with no bots. Players who leave a tournament keep their seat and check or fold automatically until their chips run out. The buy-in is only taken when the tournament starts.
+- If the server can't be reached, cash games and Sit-N-Go tournaments are played offline against bots.
 
 To run it on your computer (needs Node.js 18 or newer):
 

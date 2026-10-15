@@ -8,7 +8,7 @@ const path = require('path');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
-const TURN_TIME = 5000;           // ms a player has to act before auto check/fold
+const TURN_TIME = 10000;          // ms a player has to act before auto check/fold
 const AWAY_AFTER = 3;             // timeouts in a row before a player sits out
 const HAND_GAP = 3200;            // ms between hands
 const MAX_MESSAGE = 512;          // bytes
@@ -18,6 +18,10 @@ const CASH = [
   { sb: 10, bb: 20, buy: 2000 }, { sb: 50, bb: 100, buy: 10000 }, { sb: 250, bb: 500, buy: 50000 },
   { sb: 1000, bb: 2000, buy: 200000 }, { sb: 5000, bb: 10000, buy: 1000000 },
 ];
+const SNG_BUYS = [1000, 5000, 25000, 100000, 500000];
+const SNG_STACK = 1500, SNG_HANDS_PER_LEVEL = 5, SNG_PLAYERS = 5;
+const SNG_BLINDS = [[10, 20], [15, 30], [25, 50], [50, 100], [75, 150], [100, 200], [150, 300], [200, 400],
+  [300, 600], [500, 1000], [750, 1500], [1000, 2000]];
 const BOTS = [['Rosie', '👩‍🦰'], ['Duke', '🤠'], ['Kitty', '🐱'], ['Viper', '🐍'], ['Big Al', '🧔'], ['Lucky', '🍀'],
   ['Foxy', '🦊'], ['Bruno', '🐻'], ['Mia', '👩'], ['Tex', '🎩'], ['Pumpkin', '🎃'], ['Doc', '🧐'], ['Nana', '👵'],
   ['Robo', '🤖'], ['Shark', '🦈'], ['Rocky', '🦍'], ['Queenie', '👸'], ['Pixel', '👾']];
@@ -131,21 +135,30 @@ function short(n) {
 }
 const nextIdx = (from, pred) => { for (let k = 1; k <= 5; k++) { const j = (from + k) % 5; if (pred(j)) return j; } return -1; };
 const pick = a => a[Math.floor(Math.random() * a.length)];
+const ord = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+const human = (c, chips) => ({ name: c.name, avatar: c.avatar, chips, isBot: false, client: c, cards: [], bet: 0, total: 0 });
 function send(c, msg) { if (c.ws.readyState === 1) c.ws.send(JSON.stringify(msg)); }
 
 // ---------------------------------------------------------------- tables
 const tables = new Map();
 let tableSeq = 0;
 
+// A cash table (bots fill the seats real players don't take) or a Sit-N-Go tournament (five real players).
 class Table {
-  constructor(stage) {
-    this.id = ++tableSeq; this.stage = stage;
-    Object.assign(this, { sb: CASH[stage].sb, bb: CASH[stage].bb, buy: CASH[stage].buy });
-    this.seats = [];
-    for (let i = 0; i < 5; i++) this.seats.push(this.newBot());
-    this.dealer = Math.floor(Math.random() * 5);
+  constructor(stage, mode = 'cash', players = []) {
+    this.id = ++tableSeq; this.stage = stage; this.mode = mode; this.handNo = 0;
     this.board = []; this.turn = -1; this.turnId = 0; this.deadline = 0; this.msg = ''; this.winCards = null;
     this.watchers = new Set(); this.running = false; this.inHand = false; this.actionResolve = null;
+    if (mode === 'sng') {
+      Object.assign(this, { sb: SNG_BLINDS[0][0], bb: SNG_BLINDS[0][1], buy: SNG_BUYS[stage] });
+      this.seats = players.map(c => human(c, SNG_STACK)).sort(() => Math.random() - .5);
+      players.forEach(c => { this.watchers.add(c); c.table = this; });
+    } else {
+      Object.assign(this, { sb: CASH[stage].sb, bb: CASH[stage].bb, buy: CASH[stage].buy });
+      this.seats = [];
+      for (let i = 0; i < 5; i++) this.seats.push(this.newBot());
+    }
+    this.dealer = Math.floor(Math.random() * 5);
     tables.set(this.id, this);
   }
   newBot() {
@@ -161,12 +174,14 @@ class Table {
     const you = this.seats.findIndex(p => !p.isBot && p.client === c);
     const reserved = this.seats.findIndex(p => p.reservedBy === c);
     const s = {
-      you, reserved, stage: this.stage, sb: this.sb, bb: this.bb, buy: this.buy, dealer: this.dealer, board: this.board,
+      you, reserved, mode: this.mode, stage: this.stage, handNo: this.handNo, sb: this.sb, bb: this.bb, buy: this.buy,
+      dealer: this.dealer, board: this.board,
       turn: this.turn, turnId: this.turnId, turnLeft: this.actionResolve ? Math.max(0, this.deadline - Date.now()) : 0,
       msg: this.msg, winCards: this.winCards,
       seats: this.seats.map((p, i) => ({
         name: p.name, avatar: p.avatar, chips: p.chips, bet: p.bet || 0, total: p.total || 0, folded: !!p.folded,
         allIn: !!p.allIn, sitOut: !!p.sitOut, isBot: !!p.isBot, away: !!p.away, tag: p.tag || null,
+        out: !!p.out, rank: p.rank || 0,
         cards: (p.cards || []).map(cd => (i === you || p.showCards) ? cd : null),
       })),
     };
@@ -209,6 +224,12 @@ class Table {
     if (i < 0) return;
     const p = this.seats[i];
     p.client = null;
+    if (this.mode === 'sng') {
+      // Tournament seats stay put: a player who leaves keeps checking or folding until their chips run out.
+      if (!p.out) this.emit({ kind: 'notice', notice: `${p.name} left the tournament` });
+      if (this.turn === i && this.actionResolve) this.actionResolve({ type: this.currentBet - p.bet === 0 ? 'check' : 'fold' });
+      return;
+    }
     if (!this.inHand) { this.replaceWithBot(i, bot => `${p.name} left the table · ${bot} took the seat`); return; }
     this.emit({ kind: 'notice', notice: `${p.name} left the table` });
     if (this.turn === i && this.actionResolve) this.actionResolve({ type: 'fold' });
@@ -216,6 +237,7 @@ class Table {
   }
 
   async run() {
+    if (this.mode === 'sng') return this.runSng();
     this.running = true;
     await sleep(600);
     for (;;) {
@@ -234,12 +256,44 @@ class Table {
     }
   }
 
+  async runSng() {
+    this.running = true;
+    await sleep(1500);
+    for (;;) {
+      const left = this.seats.filter(p => !p.out);
+      if (left.length <= 1) {
+        const w = left[0];
+        if (w) { w.rank = 1; this.emit({ kind: 'sngEnd', ranks: [{ seat: this.seats.indexOf(w), rank: 1 }], notice: `${w.name} wins the tournament! 🏆` }); }
+        break;
+      }
+      if (!this.seats.some(p => p.client)) break;
+      this.handNo++;
+      const lv = Math.min(Math.floor((this.handNo - 1) / SNG_HANDS_PER_LEVEL), SNG_BLINDS.length - 1);
+      const up = SNG_BLINDS[lv][1] !== this.bb;
+      [this.sb, this.bb] = SNG_BLINDS[lv];
+      if (up) this.emit({ kind: 'notice', notice: `Blinds up: ${short(this.sb)}/${short(this.bb)}` });
+      try { await this.playHand(); }
+      catch (e) { console.error('hand error', e); }
+      this.inHand = false; this.turn = -1;
+      const busted = this.seats.filter(p => !p.out && p.chips <= 0);
+      if (busted.length) {
+        const remaining = this.seats.filter(p => !p.out && p.chips > 0).length;
+        busted.sort((a, b) => b.startChips - a.startChips).forEach((p, k) => { p.out = true; p.rank = remaining + 1 + k; });
+        this.emit({ kind: 'sngEnd', ranks: busted.map(p => ({ seat: this.seats.indexOf(p), rank: p.rank })),
+          notice: busted.map(p => `${p.name} finished ${ord(p.rank)}`).join(' · ') });
+      }
+      this.emit({ kind: 'handEnd' });
+      await sleep(HAND_GAP);
+    }
+    this.running = false; tables.delete(this.id);
+  }
+
   async playHand() {
     const P = this.seats;
     this.inHand = true;
     P.forEach(p => {
       p.sitOut = p.chips <= 0;
-      Object.assign(p, { cards: [], folded: p.sitOut, allIn: false, bet: 0, total: 0, acted: false, showCards: false, tag: null });
+      Object.assign(p, { cards: [], folded: p.sitOut, allIn: false, bet: 0, total: 0, acted: false, showCards: false, tag: null, startChips: p.chips });
     });
     this.board = []; this.turn = -1; this.msg = ''; this.winCards = null;
     const live = i => !P[i].sitOut;
@@ -308,7 +362,7 @@ class Table {
 
   humanAction(p) {
     const auto = timeout => ({ type: this.currentBet - p.bet === 0 ? 'check' : 'fold', timeout });
-    if (!p.client) return Promise.resolve({ type: 'fold' });
+    if (!p.client) return Promise.resolve(auto(false));
     if (p.away) { this.emit({ kind: 'turn' }); return sleep(700).then(() => auto(false)); }
     return new Promise(res => {
       this.deadline = Date.now() + TURN_TIME;
@@ -426,7 +480,7 @@ class Table {
   }
   onRebuy(c) {
     const p = this.seats.find(q => !q.isBot && q.client === c);
-    if (p && p.chips <= 0 && (!this.inHand || p.sitOut)) { p.chips = this.buy; this.emit({ kind: 'state' }); }
+    if (this.mode === 'cash' && p && p.chips <= 0 && (!this.inHand || p.sitOut)) { p.chips = this.buy; this.emit({ kind: 'state' }); }
   }
   onBack(c) {
     const p = this.seats.find(q => !q.isBot && q.client === c);
@@ -468,12 +522,47 @@ function botDecide(t, p) {
 }
 
 // ---------------------------------------------------------------- clients
-function onJoin(c, m) {
-  if (c.table) c.table.removeClient(c);
-  const stage = Math.max(0, Math.min(CASH.length - 1, Math.floor(Number(m.stage)) || 0));
+function identify(c, m) {
   c.name = String(m.name || '').replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, 12) || 'Player';
   c.avatar = AVATARS.includes(m.avatar) ? m.avatar : '🙂';
-  const t = [...tables.values()].find(x => x.stage === stage && x.freeSeat() >= 0) || new Table(stage);
+}
+const clampStage = (v, n) => Math.max(0, Math.min(n - 1, Math.floor(Number(v)) || 0));
+function leaveEverything(c) {
+  if (c.table) c.table.removeClient(c);
+  leaveQueue(c);
+}
+
+const queues = SNG_BUYS.map(() => []);
+function broadcastQueue(stage) {
+  const players = queues[stage].map(c => ({ name: c.name, avatar: c.avatar }));
+  for (const c of queues[stage]) send(c, { t: 'queue', stage, players });
+}
+function leaveQueue(c) {
+  if (c.queue == null) return;
+  const stage = c.queue, q = queues[stage], i = q.indexOf(c);
+  if (i >= 0) q.splice(i, 1);
+  c.queue = null;
+  broadcastQueue(stage);
+}
+function onSngJoin(c, m) {
+  leaveEverything(c);
+  const stage = clampStage(m.stage, SNG_BUYS.length);
+  identify(c, m);
+  queues[stage].push(c); c.queue = stage;
+  if (queues[stage].length < SNG_PLAYERS) { broadcastQueue(stage); return; }
+  const group = queues[stage].splice(0, SNG_PLAYERS);
+  group.forEach(x => { x.queue = null; send(x, { t: 'joined', mode: 'sng', stage }); });
+  broadcastQueue(stage);
+  const t = new Table(stage, 'sng', group);
+  t.emit({ kind: 'state', notice: 'The tournament is starting. Good luck!' });
+  t.run();
+}
+
+function onJoin(c, m) {
+  leaveEverything(c);
+  const stage = clampStage(m.stage, CASH.length);
+  identify(c, m);
+  const t = [...tables.values()].find(x => x.mode === 'cash' && x.stage === stage && x.freeSeat() >= 0) || new Table(stage);
   t.addClient(c);
 }
 function onMessage(c, raw) {
@@ -483,6 +572,8 @@ function onMessage(c, raw) {
   const t = c.table;
   switch (m.t) {
     case 'join': onJoin(c, m); break;
+    case 'sngJoin': onSngJoin(c, m); break;
+    case 'sngLeave': leaveQueue(c); break;
     case 'act': if (t) t.onAct(c, m); break;
     case 'chat': if (t) t.onChat(c, m.text); break;
     case 'rebuy': if (t) t.onRebuy(c); break;
@@ -508,7 +599,7 @@ const server = http.createServer((req, res) => {
     let players = 0;
     for (const t of tables.values()) players += t.humanCount();
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ ok: true, players, tables: tables.size }));
+    res.end(JSON.stringify({ ok: true, players, tables: tables.size, sng: queues.map(q => q.length) }));
     return;
   }
   const f = FILES[url] && findFile(FILES[url][0]);
@@ -525,7 +616,7 @@ wss.on('connection', ws => {
   const c = { ws, table: null };
   ws.on('pong', () => { ws.isDead = false; });
   ws.on('message', data => onMessage(c, data.toString()));
-  ws.on('close', () => { if (c.table) c.table.removeClient(c); });
+  ws.on('close', () => leaveEverything(c));
   ws.on('error', () => {});
 });
 setInterval(() => {
